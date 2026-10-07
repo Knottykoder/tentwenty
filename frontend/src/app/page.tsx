@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '../components/Sidebar';
+import { WelcomeHero } from '../components/WelcomeHero';
+import { ParsingProgress } from '../components/ParsingProgress';
 import { DashboardView } from '../components/DashboardView';
 import { ProjectsView } from '../components/ProjectsView';
 import { ProductivityView } from '../components/ProductivityView';
@@ -26,10 +28,10 @@ import {
   TrendingUp,
   Clock,
   Calendar,
-  RefreshCw,
   AlertCircle,
   ArrowUpRight,
-  ShieldCheck
+  ShieldCheck,
+  RotateCcw
 } from 'lucide-react';
 
 export default function Home() {
@@ -45,18 +47,18 @@ export default function Home() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [totalCategoryHours, setTotalCategoryHours] = useState(0);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [hasData, setHasData] = useState<boolean>(false);
 
   // UI / Modal states
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<ProjectMetric | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingSample, setIsLoadingSample] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
     setFetchError(null);
     try {
       const dashRes = await fetch(`/api/dashboard?month=${selectedMonth}`);
@@ -64,6 +66,7 @@ export default function Home() {
       const dashData = await dashRes.json();
       setMetrics(dashData.metrics || null);
       setTrends(dashData.monthlyTrends || []);
+      setHasData(Boolean(dashData.hasData));
       if (dashData.availableMonths) {
         setAvailableMonths(dashData.availableMonths);
       }
@@ -96,7 +99,7 @@ export default function Home() {
       const msg = err instanceof Error ? err.message : String(err);
       setFetchError(msg);
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
   }, [selectedMonth]);
 
@@ -104,19 +107,40 @@ export default function Home() {
     fetchData();
   }, [fetchData]);
 
+  // Handle 1-click sample data loading with visual progress
   const handleLoadSample = async () => {
-    setIsLoadingSample(true);
+    setIsProcessing(true);
     try {
       const res = await fetch('/api/sample-data', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        await fetchData();
-      }
+      await res.json();
+      // Keep progress visible for ~2 seconds so user sees the ingestion steps
+      await new Promise((resolve) => setTimeout(resolve, 2200));
+      await fetchData();
     } catch (err) {
       console.error('Error loading sample data:', err);
     } finally {
-      setIsLoadingSample(false);
+      setIsProcessing(false);
     }
+  };
+
+  // Handle resetting data to test the fresh welcome state anytime
+  const handleResetData = async () => {
+    setIsInitialLoading(true);
+    try {
+      await fetch('/api/reset', { method: 'POST' });
+      await fetchData();
+    } catch (err) {
+      console.error('Error resetting data:', err);
+    } finally {
+      setIsInitialLoading(false);
+    }
+  };
+
+  const handleUploadSuccess = async () => {
+    setIsProcessing(true);
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+    await fetchData();
+    setIsProcessing(false);
   };
 
   const isReconciled = metrics?.reconciliationAudit?.isReconciled ?? true;
@@ -130,155 +154,144 @@ export default function Home() {
         onOpenUpload={() => setIsUploadOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onLoadSample={handleLoadSample}
-        isLoadingSample={isLoadingSample}
+        isLoadingSample={isProcessing}
         isReconciled={isReconciled}
       />
 
-      {/* 2. Main Workspace (Full Width & Fixed Viewport) */}
+      {/* 2. Main Workspace */}
       <main className="flex-1 flex flex-col h-full overflow-hidden p-6 sm:p-8 bg-[#FAFBFF]">
-        {/* Top Header: Greeting & Period Picker */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 flex-shrink-0">
-          <div>
-            <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
-              Hello Leadership 👋,
-            </h1>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">
-              Financial Margin & Commercial Performance Dashboard
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Period Dropdown */}
-            <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700">
-              <Calendar className="w-3.5 h-3.5 text-[#5932EA]" />
-              <span className="text-slate-400 font-normal">Period:</span>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent outline-none cursor-pointer text-slate-900 font-bold"
-              >
-                <option value="all">Full Year 2025</option>
-                {availableMonths.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Audit Status Button */}
-            <button
-              onClick={() => setIsAuditOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#008767] bg-[#16C098]/10 hover:bg-[#16C098]/20 border border-[#00B087]/20 rounded-xl transition-colors shadow-sm"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#008767]" />
-              <span>0.00 AED Audit</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 3. Top Metric Cards Row (Matching screenshot icons & styling) */}
-        {metrics && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6 flex-shrink-0">
-            {/* Card 1: Revenue */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-[#D3FFE7] text-[#00AC4F] flex items-center justify-center flex-shrink-0">
-                <DollarSign className="w-7 h-7" />
-              </div>
+        {/* If files are being parsed and calculated, show visual progress */}
+        {isProcessing ? (
+          <ParsingProgress />
+        ) : !hasData ? (
+          /* Initial State: Empty Welcome Hero with the core question and 2 buttons */
+          <WelcomeHero
+            onLoadSample={handleLoadSample}
+            onOpenUpload={() => setIsUploadOpen(true)}
+            isLoading={isProcessing}
+          />
+        ) : (
+          /* Data Loaded State: Full-Width SaaS Dashboard */
+          <>
+            {/* Top Header: Greeting & Period Picker */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 flex-shrink-0">
               <div>
-                <span className="text-xs text-[#ACACAC] font-medium block">
-                  Total Revenue
-                </span>
-                <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
-                  AED {metrics.totalRevenue.toLocaleString()}
-                </h3>
-                <span className="text-[11px] text-[#00AC4F] font-bold flex items-center gap-0.5 mt-0.5">
-                  <ArrowUpRight className="w-3 h-3" />
-                  {metrics.projectCount} commercial projects
-                </span>
+                <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
+                  Hello Leadership 👋,
+                </h1>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                  Financial Margin & Commercial Performance Dashboard
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Reset / Clear Button to test Welcome Screen */}
+                <button
+                  onClick={handleResetData}
+                  title="Clear data to view welcome hero screen"
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-sm"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="hidden sm:inline">Reset Screen</span>
+                </button>
+
+                {/* Period Dropdown */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700">
+                  <Calendar className="w-3.5 h-3.5 text-[#5932EA]" />
+                  <span className="text-slate-400 font-normal">Period:</span>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="bg-transparent outline-none cursor-pointer text-slate-900 font-bold"
+                  >
+                    <option value="all">Full Year 2025</option>
+                    {availableMonths.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Audit Status Button */}
+                <button
+                  onClick={() => setIsAuditOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#008767] bg-[#16C098]/10 hover:bg-[#16C098]/20 border border-[#00B087]/20 rounded-xl transition-colors shadow-sm"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#008767]" />
+                  <span>0.00 AED Audit</span>
+                </button>
               </div>
             </div>
 
-            {/* Card 2: Total Cost */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-[#E7EDFF] text-[#5932EA] flex items-center justify-center flex-shrink-0">
-                <Briefcase className="w-7 h-7" />
-              </div>
-              <div>
-                <span className="text-xs text-[#ACACAC] font-medium block">
-                  Total Project Cost
-                </span>
-                <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
-                  AED {metrics.totalCost.toLocaleString()}
-                </h3>
-                <span className="text-[11px] text-slate-500 font-semibold block mt-0.5">
-                  Direct + Indirect Recovered
-                </span>
-              </div>
-            </div>
+            {/* Top Metric Cards Row */}
+            {metrics && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6 flex-shrink-0">
+                <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#D3FFE7] text-[#00AC4F] flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-[#ACACAC] font-medium block">Total Revenue</span>
+                    <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
+                      AED {metrics.totalRevenue.toLocaleString()}
+                    </h3>
+                    <span className="text-[11px] text-[#00AC4F] font-bold flex items-center gap-0.5 mt-0.5">
+                      <ArrowUpRight className="w-3 h-3" />
+                      {metrics.projectCount} commercial projects
+                    </span>
+                  </div>
+                </div>
 
-            {/* Card 3: Gross Margin */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-[#E5F9FF] text-[#00B087] flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-7 h-7" />
-              </div>
-              <div>
-                <span className="text-xs text-[#ACACAC] font-medium block">
-                  Gross Margin
-                </span>
-                <h3 className="text-xl sm:text-2xl font-bold text-[#00AC4F] tracking-tight mt-0.5">
-                  {metrics.grossMarginPercent}%
-                </h3>
-                <span className="text-[11px] text-[#00AC4F] font-bold flex items-center gap-0.5 mt-0.5">
-                  Profit: AED {metrics.totalProfit.toLocaleString()}
-                </span>
-              </div>
-            </div>
+                <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#E7EDFF] text-[#5932EA] flex items-center justify-center flex-shrink-0">
+                    <Briefcase className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-[#ACACAC] font-medium block">Total Project Cost</span>
+                    <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
+                      AED {metrics.totalCost.toLocaleString()}
+                    </h3>
+                    <span className="text-[11px] text-slate-500 font-semibold block mt-0.5">
+                      Direct + Indirect Recovered
+                    </span>
+                  </div>
+                </div>
 
-            {/* Card 4: Productivity */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-[#FFF0EB] text-[#FF6A55] flex items-center justify-center flex-shrink-0">
-                <Clock className="w-7 h-7" />
-              </div>
-              <div>
-                <span className="text-xs text-[#ACACAC] font-medium block">
-                  Billable Productivity
-                </span>
-                <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
-                  {metrics.billableHoursPercent}%
-                </h3>
-                <span className="text-[11px] text-slate-500 font-semibold block mt-0.5">
-                  {metrics.billableHours.toLocaleString()} / {metrics.totalHours.toLocaleString()} hrs
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+                <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#E5F9FF] text-[#00B087] flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-[#ACACAC] font-medium block">Gross Margin</span>
+                    <h3 className="text-xl sm:text-2xl font-bold text-[#00AC4F] tracking-tight mt-0.5">
+                      {metrics.grossMarginPercent}%
+                    </h3>
+                    <span className="text-[11px] text-[#00AC4F] font-bold flex items-center gap-0.5 mt-0.5">
+                      Profit: AED {metrics.totalProfit.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
 
-        {/* 4. Full Width Table Area (Rows Scroll Inside, Whole Page Doesn't Scroll) */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          {fetchError && (
-            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 flex items-center justify-between text-xs text-red-700 font-medium flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600" />
-                <span>Backend connection error: {fetchError}</span>
+                <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#FFF0EB] text-[#FF6A55] flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <span className="text-xs text-[#ACACAC] font-medium block">Billable Productivity</span>
+                    <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
+                      {metrics.billableHoursPercent}%
+                    </h3>
+                    <span className="text-[11px] text-slate-500 font-semibold block mt-0.5">
+                      {metrics.billableHours.toLocaleString()} / {metrics.totalHours.toLocaleString()} hrs
+                    </span>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={fetchData}
-                className="px-3 py-1 rounded-xl bg-red-600 text-white font-bold"
-              >
-                Retry
-              </button>
-            </div>
-          )}
+            )}
 
-          {isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
-              <RefreshCw className="w-8 h-8 animate-spin text-[#5932EA] mb-2" />
-              <p className="text-xs font-semibold text-slate-400">Loading records...</p>
-            </div>
-          ) : (
-            <>
+            {/* Full-Width Table View with Scrollable Rows */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {currentTab === 'dashboard' && (
                 <DashboardView
                   projects={projects}
@@ -319,16 +332,16 @@ export default function Home() {
               {currentTab === 'matrix' && (
                 <MatrixView selectedMonth={selectedMonth} />
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </main>
 
       {/* Modals */}
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        onSuccess={fetchData}
+        onSuccess={handleUploadSuccess}
       />
 
       <SettingsModal

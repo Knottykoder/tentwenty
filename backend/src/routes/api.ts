@@ -23,6 +23,12 @@ export async function apiRoutes(fastify: FastifyInstance) {
     return res;
   });
 
+  // Reset/Clear data to return to Welcome screen
+  fastify.post('/reset', async () => {
+    store.clearAll();
+    return { success: true, message: 'Data cleared successfully' };
+  });
+
   // Upload spreadsheets
   fastify.post('/upload', async (req: FastifyRequest, reply: FastifyReply) => {
     try {

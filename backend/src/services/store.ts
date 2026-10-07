@@ -51,13 +51,9 @@ class Store {
       if (fs.existsSync(STORE_FILE)) {
         const raw = fs.readFileSync(STORE_FILE, 'utf-8');
         this.data = JSON.parse(raw);
-      } else {
-        // Automatically load sample data if store is empty
-        this.loadSampleData();
       }
     } catch (err) {
-      console.error('Error initializing store, falling back to sample data:', err);
-      this.loadSampleData();
+      console.error('Error initializing store:', err);
     }
   }
 
