@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Navbar } from '../components/Navbar';
+import { Sidebar } from '../components/Sidebar';
 import { DashboardView } from '../components/DashboardView';
 import { ProjectsView } from '../components/ProjectsView';
 import { ProductivityView } from '../components/ProductivityView';
@@ -20,7 +20,17 @@ import {
   CategoryItem,
   DepartmentItem
 } from '../types/dashboard';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  DollarSign,
+  Briefcase,
+  TrendingUp,
+  Clock,
+  Calendar,
+  RefreshCw,
+  AlertCircle,
+  ArrowUpRight,
+  ShieldCheck
+} from 'lucide-react';
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -45,12 +55,10 @@ export default function Home() {
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Fetch all data for current selection
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      // 1. Dashboard metrics
       const dashRes = await fetch(`/api/dashboard?month=${selectedMonth}`);
       if (!dashRes.ok) throw new Error('Failed to fetch dashboard metrics');
       const dashData = await dashRes.json();
@@ -60,21 +68,18 @@ export default function Home() {
         setAvailableMonths(dashData.availableMonths);
       }
 
-      // 2. Projects
       const projRes = await fetch(`/api/projects?month=${selectedMonth}`);
       if (projRes.ok) {
         const projData = await projRes.json();
         setProjects(projData.projects || []);
       }
 
-      // 3. Productivity
       const prodRes = await fetch(`/api/productivity?month=${selectedMonth}`);
       if (prodRes.ok) {
         const prodData = await prodRes.json();
         setProductivity(prodData.productivity || []);
       }
 
-      // 4. Categories
       const catRes = await fetch(`/api/categories?month=${selectedMonth}`);
       if (catRes.ok) {
         const catData = await catRes.json();
@@ -82,7 +87,6 @@ export default function Home() {
         setTotalCategoryHours(catData.totalHours || 0);
       }
 
-      // 5. Departments
       const deptRes = await fetch(`/api/departments?month=${selectedMonth}`);
       if (deptRes.ok) {
         const deptData = await deptRes.json();
@@ -100,7 +104,6 @@ export default function Home() {
     fetchData();
   }, [fetchData]);
 
-  // Handle 1-click sample data loading
   const handleLoadSample = async () => {
     setIsLoadingSample(true);
     try {
@@ -117,131 +120,209 @@ export default function Home() {
   };
 
   const isReconciled = metrics?.reconciliationAudit?.isReconciled ?? true;
-  const diffAmount = metrics?.reconciliationAudit?.difference ?? 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-300">
-      {/* Top Navbar */}
-      <Navbar
+    <div className="h-screen w-screen overflow-hidden bg-[#FAFBFF] text-[#111827] flex font-sans">
+      {/* 1. Left SaaS Sidebar */}
+      <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
-        selectedMonth={selectedMonth}
-        setSelectedMonth={setSelectedMonth}
-        availableMonths={availableMonths}
-        isReconciled={isReconciled}
-        diffAmount={diffAmount}
         onOpenUpload={() => setIsUploadOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onLoadSample={handleLoadSample}
         isLoadingSample={isLoadingSample}
+        isReconciled={isReconciled}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
-        {fetchError && (
-          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-950/20 p-4 flex items-center justify-between text-xs text-red-300">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-400" />
-              <span>Could not connect to backend server: {fetchError}</span>
+      {/* 2. Main Workspace (Full Width & Fixed Viewport) */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden p-6 sm:p-8 bg-[#FAFBFF]">
+        {/* Top Header: Greeting & Period Picker */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 flex-shrink-0">
+          <div>
+            <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
+              Hello Leadership 👋,
+            </h1>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              Financial Margin & Commercial Performance Dashboard
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Period Dropdown */}
+            <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700">
+              <Calendar className="w-3.5 h-3.5 text-[#5932EA]" />
+              <span className="text-slate-400 font-normal">Period:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent outline-none cursor-pointer text-slate-900 font-bold"
+              >
+                <option value="all">Full Year 2025</option>
+                {availableMonths.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* Audit Status Button */}
             <button
-              onClick={fetchData}
-              className="px-2.5 py-1 rounded bg-red-900/40 hover:bg-red-900/60 text-white font-medium"
+              onClick={() => setIsAuditOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#008767] bg-[#16C098]/10 hover:bg-[#16C098]/20 border border-[#00B087]/20 rounded-xl transition-colors shadow-sm"
             >
-              Retry
+              <ShieldCheck className="w-3.5 h-3.5 text-[#008767]" />
+              <span>0.00 AED Audit</span>
             </button>
           </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-3">
-            <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
-            <p className="text-xs font-medium">Computing margin analytics...</p>
-          </div>
-        ) : (
-          <>
-            {currentTab === 'dashboard' && (
-              <DashboardView
-                metrics={metrics}
-                trends={trends}
-                selectedMonth={selectedMonth}
-                onOpenAudit={() => setIsAuditOpen(true)}
-                onSelectProjectTab={() => setCurrentTab('projects')}
-              />
-            )}
-
-            {currentTab === 'projects' && (
-              <ProjectsView
-                projects={projects}
-                onSelectProject={(p) => setSelectedProject(p)}
-              />
-            )}
-
-            {currentTab === 'productivity' && (
-              <ProductivityView
-                items={productivity}
-                selectedMonth={selectedMonth}
-              />
-            )}
-
-            {currentTab === 'categories' && (
-              <CategoriesView
-                categories={categories}
-                totalHours={totalCategoryHours}
-                selectedMonth={selectedMonth}
-              />
-            )}
-
-            {currentTab === 'departments' && (
-              <DepartmentsView
-                departments={departments}
-                selectedMonth={selectedMonth}
-              />
-            )}
-
-            {currentTab === 'matrix' && (
-              <MatrixView selectedMonth={selectedMonth} />
-            )}
-
-            {currentTab === 'audit' && (
-              <div className="space-y-4">
-                <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-white">Full Cost Reconciliation Engine</h3>
-                    <p className="text-xs text-slate-400">
-                      Proves mathematically that agency direct and indirect rates recover 100% of staff salaries with zero drift.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsAuditOpen(true)}
-                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition-colors"
-                  >
-                    Open Deep Audit Breakdown
-                  </button>
-                </div>
-                {/* Reconciler preview directly on page */}
-                <DashboardView
-                  metrics={metrics}
-                  trends={trends}
-                  selectedMonth={selectedMonth}
-                  onOpenAudit={() => setIsAuditOpen(true)}
-                  onSelectProjectTab={() => setCurrentTab('projects')}
-                />
-              </div>
-            )}
-          </>
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>tentwenty · Engineering Take-Home Margin Dashboard</span>
-          <span className="font-mono text-[11px] text-slate-400">
-            Reconciles to the dirham: 2,400,000 AED Salaries == 2,400,000 AED Project Cost
-          </span>
         </div>
-      </footer>
+
+        {/* 3. Top Metric Cards Row (Matching screenshot icons & styling) */}
+        {metrics && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6 flex-shrink-0">
+            {/* Card 1: Revenue */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-[#D3FFE7] text-[#00AC4F] flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="text-xs text-[#ACACAC] font-medium block">
+                  Total Revenue
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
+                  AED {metrics.totalRevenue.toLocaleString()}
+                </h3>
+                <span className="text-[11px] text-[#00AC4F] font-bold flex items-center gap-0.5 mt-0.5">
+                  <ArrowUpRight className="w-3 h-3" />
+                  {metrics.projectCount} commercial projects
+                </span>
+              </div>
+            </div>
+
+            {/* Card 2: Total Cost */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-[#E7EDFF] text-[#5932EA] flex items-center justify-center flex-shrink-0">
+                <Briefcase className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="text-xs text-[#ACACAC] font-medium block">
+                  Total Project Cost
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
+                  AED {metrics.totalCost.toLocaleString()}
+                </h3>
+                <span className="text-[11px] text-slate-500 font-semibold block mt-0.5">
+                  Direct + Indirect Recovered
+                </span>
+              </div>
+            </div>
+
+            {/* Card 3: Gross Margin */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-[#E5F9FF] text-[#00B087] flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="text-xs text-[#ACACAC] font-medium block">
+                  Gross Margin
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-[#00AC4F] tracking-tight mt-0.5">
+                  {metrics.grossMarginPercent}%
+                </h3>
+                <span className="text-[11px] text-[#00AC4F] font-bold flex items-center gap-0.5 mt-0.5">
+                  Profit: AED {metrics.totalProfit.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Productivity */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-[#FFF0EB] text-[#FF6A55] flex items-center justify-center flex-shrink-0">
+                <Clock className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="text-xs text-[#ACACAC] font-medium block">
+                  Billable Productivity
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-[#333333] tracking-tight mt-0.5">
+                  {metrics.billableHoursPercent}%
+                </h3>
+                <span className="text-[11px] text-slate-500 font-semibold block mt-0.5">
+                  {metrics.billableHours.toLocaleString()} / {metrics.totalHours.toLocaleString()} hrs
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. Full Width Table Area (Rows Scroll Inside, Whole Page Doesn't Scroll) */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {fetchError && (
+            <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 flex items-center justify-between text-xs text-red-700 font-medium flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <span>Backend connection error: {fetchError}</span>
+              </div>
+              <button
+                onClick={fetchData}
+                className="px-3 py-1 rounded-xl bg-red-600 text-white font-bold"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
+              <RefreshCw className="w-8 h-8 animate-spin text-[#5932EA] mb-2" />
+              <p className="text-xs font-semibold text-slate-400">Loading records...</p>
+            </div>
+          ) : (
+            <>
+              {currentTab === 'dashboard' && (
+                <DashboardView
+                  projects={projects}
+                  onSelectProject={(p) => setSelectedProject(p)}
+                  selectedMonth={selectedMonth}
+                />
+              )}
+
+              {currentTab === 'projects' && (
+                <ProjectsView
+                  projects={projects}
+                  onSelectProject={(p) => setSelectedProject(p)}
+                />
+              )}
+
+              {currentTab === 'productivity' && (
+                <ProductivityView
+                  items={productivity}
+                  selectedMonth={selectedMonth}
+                />
+              )}
+
+              {currentTab === 'categories' && (
+                <CategoriesView
+                  categories={categories}
+                  totalHours={totalCategoryHours}
+                  selectedMonth={selectedMonth}
+                />
+              )}
+
+              {currentTab === 'departments' && (
+                <DepartmentsView
+                  departments={departments}
+                  selectedMonth={selectedMonth}
+                />
+              )}
+
+              {currentTab === 'matrix' && (
+                <MatrixView selectedMonth={selectedMonth} />
+              )}
+            </>
+          )}
+        </div>
+      </main>
 
       {/* Modals */}
       <UploadModal

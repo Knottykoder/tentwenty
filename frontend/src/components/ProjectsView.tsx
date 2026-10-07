@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Download, Search, Filter, ExternalLink } from 'lucide-react';
+import { Search, Download, ExternalLink } from 'lucide-react';
 import { ProjectMetric } from '../types/dashboard';
 import { exportToCsv } from '../utils/exportCsv';
 
@@ -43,55 +43,58 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onSelectPr
   };
 
   return (
-    <div className="space-y-4">
-      {/* Search & Filter Header */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
-        <div className="flex flex-1 items-center gap-2 max-w-md bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 text-xs">
-          <Search className="w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by project name or ref code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-transparent text-slate-200 outline-none placeholder:text-slate-500"
-          />
+    <div className="flex-1 flex flex-col min-h-0 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+      {/* Table Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 flex-shrink-0">
+        <div>
+          <h2 className="text-xl font-extrabold text-[#111827] tracking-tight">
+            Commercial Projects & Margin Breakdown
+          </h2>
+          <p className="text-xs font-semibold text-[#16C098] mt-0.5">
+            Click any project row to view department hours & employee contribution
+          </p>
         </div>
 
-        <div className="flex items-center gap-2.5 overflow-x-auto">
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#F9FBFF] border border-slate-200 rounded-xl px-3 py-2 text-xs">
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search project..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-transparent text-slate-800 outline-none placeholder:text-slate-400 font-medium w-36"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-[#F9FBFF] border border-slate-200 rounded-xl px-3 py-2 text-xs">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent text-slate-300 outline-none cursor-pointer"
+              className="bg-transparent text-slate-800 font-semibold outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900">All Statuses</option>
-              <option value="in progress" className="bg-slate-900">In Progress</option>
-              <option value="completed" className="bg-slate-900">Completed</option>
+              <option value="all">All Status</option>
+              <option value="in progress">In Progress</option>
+              <option value="completed">Completed</option>
             </select>
           </div>
 
-          {/* Category Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+          <div className="flex items-center gap-1.5 bg-[#F9FBFF] border border-slate-200 rounded-xl px-3 py-2 text-xs">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-transparent text-slate-300 outline-none cursor-pointer"
+              className="bg-transparent text-slate-800 font-semibold outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900">All Categories</option>
+              <option value="all">All Categories</option>
               {categories.map((c) => (
-                <option key={c} value={c} className="bg-slate-900">
-                  {c}
-                </option>
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
 
-          {/* Export Button */}
           <button
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-sm"
           >
             <Download className="w-3.5 h-3.5" />
             Export CSV
@@ -99,83 +102,87 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onSelectPr
         </div>
       </div>
 
-      {/* Projects Table */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/70 text-slate-400 uppercase font-semibold text-[11px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-3.5">Ref Code</th>
-                <th className="py-3 px-3.5">Project Name</th>
-                <th className="py-3 px-3.5">Category</th>
-                <th className="py-3 px-3.5">Status</th>
-                <th className="py-3 px-3.5 text-right">Price</th>
-                <th className="py-3 px-3.5 text-right">Hours</th>
-                <th className="py-3 px-3.5 text-right">Total Cost</th>
-                <th className="py-3 px-3.5 text-right">Profit</th>
-                <th className="py-3 px-3.5 text-right">Margin</th>
-                <th className="py-3 px-3.5 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {filtered.map((p) => {
-                const isProfitable = p.profit >= 0;
-                return (
-                  <tr
-                    key={p.refCode}
-                    onClick={() => onSelectProject(p)}
-                    className="hover:bg-slate-800/50 cursor-pointer transition-colors group"
-                  >
-                    <td className="py-3 px-3.5 font-mono font-medium text-emerald-400">
-                      {p.refCode}
-                    </td>
-                    <td className="py-3 px-3.5 font-medium text-white max-w-xs truncate">
-                      {p.projectName}
-                    </td>
-                    <td className="py-3 px-3.5 text-slate-400">{p.category}</td>
-                    <td className="py-3 px-3.5">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                          p.status === 'completed'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}
-                      >
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3.5 text-right font-mono font-medium text-white">
-                      AED {p.price.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3.5 text-right font-mono">{p.totalHours.toLocaleString()}h</td>
-                    <td className="py-3 px-3.5 text-right font-mono text-slate-300">
-                      AED {p.totalCost.toLocaleString()}
-                    </td>
-                    <td
-                      className={`py-3 px-3.5 text-right font-mono font-medium ${
-                        isProfitable ? 'text-emerald-400' : 'text-red-400'
+      {/* Scrollable Table Body */}
+      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 border-t border-b border-slate-100">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-white z-10 text-[#B5B7C0] font-semibold text-[11px] border-b border-slate-100">
+            <tr>
+              <th className="py-3 px-4">Ref Code</th>
+              <th className="py-3 px-4">Project Name</th>
+              <th className="py-3 px-4">Category</th>
+              <th className="py-3 px-4 text-right">Price</th>
+              <th className="py-3 px-4 text-right">Hours</th>
+              <th className="py-3 px-4 text-right">Total Cost</th>
+              <th className="py-3 px-4 text-right">Profit</th>
+              <th className="py-3 px-4 text-right">Margin</th>
+              <th className="py-3 px-4 text-center">Status</th>
+              <th className="py-3 px-4 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-[#292D32]">
+            {filtered.map((p) => {
+              const isCompleted = p.status.toLowerCase().includes('complete');
+              return (
+                <tr
+                  key={p.refCode}
+                  onClick={() => onSelectProject(p)}
+                  className="hover:bg-[#F9FBFF] cursor-pointer transition-colors group"
+                >
+                  <td className="py-3 px-4 font-mono font-bold text-[#5932EA]">
+                    {p.refCode}
+                  </td>
+                  <td className="py-3 px-4 font-bold text-[#111827] max-w-xs truncate">
+                    {p.projectName}
+                  </td>
+                  <td className="py-3 px-4 text-slate-500 font-medium">
+                    {p.category}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono font-bold text-[#111827]">
+                    AED {p.price.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono font-medium text-slate-600">
+                    {p.totalHours.toLocaleString()}h
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-slate-600">
+                    AED {p.totalCost.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">
+                    AED {p.profit.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono font-extrabold text-[#111827]">
+                    {p.margin}%
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span
+                      className={`inline-block px-3 py-1 rounded-md text-[10px] font-bold border ${
+                        isCompleted
+                          ? 'bg-[#16C098]/10 text-[#008767] border-[#00B087]/30'
+                          : 'bg-[#FFC5C5]/20 text-[#DF0404] border-[#FFC5C5]'
                       }`}
                     >
-                      AED {p.profit.toLocaleString()}
-                    </td>
-                    <td
-                      className={`py-3 px-3.5 text-right font-mono font-semibold ${
-                        isProfitable ? 'text-emerald-400' : 'text-red-400'
-                      }`}
-                    >
-                      {p.margin}%
-                    </td>
-                    <td className="py-3 px-3.5 text-center">
-                      <span className="text-[11px] text-emerald-400 group-hover:underline flex items-center justify-center gap-1">
-                        View
-                        <ExternalLink className="w-3 h-3" />
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {isCompleted ? 'Completed' : 'In Progress'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <button className="text-[#5932EA] text-xs font-bold group-hover:underline flex items-center justify-center gap-1 mx-auto">
+                      View
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Table Footer */}
+      <div className="flex items-center justify-between pt-4 text-xs text-[#B5B7C0] font-semibold flex-shrink-0">
+        <span>Showing {filtered.length} of {projects.length} entries</span>
+        <div className="flex items-center gap-1.5">
+          <button className="w-6 h-6 rounded-md bg-[#F5F5F5] text-slate-600 flex items-center justify-center text-xs font-bold hover:bg-slate-200">&lt;</button>
+          <button className="w-6 h-6 rounded-md bg-[#5932EA] text-white flex items-center justify-center text-xs font-bold">1</button>
+          <button className="w-6 h-6 rounded-md bg-[#F5F5F5] text-slate-600 flex items-center justify-center text-xs font-bold hover:bg-slate-200">&gt;</button>
         </div>
       </div>
     </div>

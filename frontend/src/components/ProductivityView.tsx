@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Users, Download, ArrowUpDown } from 'lucide-react';
+import { Search, Download } from 'lucide-react';
 import { ProductivityItem } from '../types/dashboard';
 import { exportToCsv } from '../utils/exportCsv';
 
@@ -12,11 +12,18 @@ interface ProductivityViewProps {
 
 export const ProductivityView: React.FC<ProductivityViewProps> = ({ items, selectedMonth }) => {
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const departments = Array.from(new Set(items.map((i) => i.department)));
 
   const filtered = items.filter((i) => {
-    return departmentFilter === 'all' || i.department.toLowerCase() === departmentFilter.toLowerCase();
+    const matchesDept =
+      departmentFilter === 'all' || i.department.toLowerCase() === departmentFilter.toLowerCase();
+    const matchesSearch =
+      i.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.employeeNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.designation.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesDept && matchesSearch;
   });
 
   const handleExportCsv = () => {
@@ -34,39 +41,46 @@ export const ProductivityView: React.FC<ProductivityViewProps> = ({ items, selec
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+    <div className="flex-1 flex flex-col min-h-0 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+      {/* Table Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 flex-shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-400" />
+          <h2 className="text-xl font-extrabold text-[#111827] tracking-tight">
             Employee Productivity Analysis
-          </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Formula: Billable Hours ÷ Total Hours Logged per employee ({selectedMonth === 'all' ? 'Full Year' : selectedMonth})
+          </h2>
+          <p className="text-xs font-semibold text-[#16C098] mt-0.5">
+            Billable Hours ÷ Total Hours Logged per employee
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Department Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#F9FBFF] border border-slate-200 rounded-xl px-3 py-2 text-xs">
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search employee..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-transparent text-slate-800 outline-none placeholder:text-slate-400 font-medium w-36"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-[#F9FBFF] border border-slate-200 rounded-xl px-3 py-2 text-xs">
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="bg-transparent text-slate-300 outline-none cursor-pointer"
+              className="bg-transparent text-slate-800 font-semibold outline-none cursor-pointer"
             >
-              <option value="all" className="bg-slate-900">All Departments</option>
+              <option value="all">All Departments</option>
               {departments.map((d) => (
-                <option key={d} value={d} className="bg-slate-900">
-                  {d}
-                </option>
+                <option key={d} value={d}>{d}</option>
               ))}
             </select>
           </div>
 
           <button
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-sm"
           >
             <Download className="w-3.5 h-3.5" />
             Export CSV
@@ -74,59 +88,76 @@ export const ProductivityView: React.FC<ProductivityViewProps> = ({ items, selec
         </div>
       </div>
 
-      {/* Productivity Table */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/70 text-slate-400 uppercase font-semibold text-[11px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-3.5">Emp ID</th>
-                <th className="py-3 px-3.5">Employee Name</th>
-                <th className="py-3 px-3.5">Department</th>
-                <th className="py-3 px-3.5">Designation</th>
-                <th className="py-3 px-3.5 text-right">Total Hours</th>
-                <th className="py-3 px-3.5 text-right">Billable</th>
-                <th className="py-3 px-3.5 text-right">Non-Billable</th>
-                <th className="py-3 px-3.5 min-w-[160px]">Productivity Rate</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {filtered.map((item) => {
-                const isHigh = item.productivityRate >= 75;
-                const isMid = item.productivityRate >= 50 && item.productivityRate < 75;
-                return (
-                  <tr key={item.employeeName} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-3.5 font-mono text-slate-400">{item.employeeNo}</td>
-                    <td className="py-3 px-3.5 font-medium text-white">{item.employeeName}</td>
-                    <td className="py-3 px-3.5 text-slate-400">{item.department}</td>
-                    <td className="py-3 px-3.5 text-slate-400 max-w-xs truncate">{item.designation}</td>
-                    <td className="py-3 px-3.5 text-right font-mono">{item.totalHours}h</td>
-                    <td className="py-3 px-3.5 text-right font-mono text-emerald-400">{item.billableHours}h</td>
-                    <td className="py-3 px-3.5 text-right font-mono text-slate-400">{item.nonBillableHours}h</td>
-                    <td className="py-3 px-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              isHigh ? 'bg-emerald-400' : isMid ? 'bg-cyan-400' : 'bg-amber-400'
-                            }`}
-                            style={{ width: `${Math.min(100, item.productivityRate)}%` }}
-                          />
-                        </div>
-                        <span
-                          className={`font-mono text-xs font-semibold w-12 text-right ${
-                            isHigh ? 'text-emerald-400' : isMid ? 'text-cyan-400' : 'text-amber-400'
+      {/* Scrollable Table Body */}
+      <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 border-t border-b border-slate-100">
+        <table className="w-full text-left text-xs">
+          <thead className="sticky top-0 bg-white z-10 text-[#B5B7C0] font-semibold text-[11px] border-b border-slate-100">
+            <tr>
+              <th className="py-3 px-4">Emp ID</th>
+              <th className="py-3 px-4">Employee Name</th>
+              <th className="py-3 px-4">Department</th>
+              <th className="py-3 px-4">Designation</th>
+              <th className="py-3 px-4 text-right">Total Hours</th>
+              <th className="py-3 px-4 text-right">Billable Hours</th>
+              <th className="py-3 px-4 text-right">Non-Billable</th>
+              <th className="py-3 px-4 min-w-[200px]">Productivity Progress</th>
+              <th className="py-3 px-4 text-center">Efficiency</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-[#292D32]">
+            {filtered.map((item) => {
+              const isHigh = item.productivityRate >= 75;
+              const isMid = item.productivityRate >= 50 && item.productivityRate < 75;
+
+              return (
+                <tr key={item.employeeName} className="hover:bg-[#F9FBFF] transition-colors">
+                  <td className="py-3.5 px-4 font-mono text-slate-400 font-semibold">{item.employeeNo}</td>
+                  <td className="py-3.5 px-4 font-bold text-[#111827]">{item.employeeName}</td>
+                  <td className="py-3.5 px-4 text-slate-500 font-medium">{item.department}</td>
+                  <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">{item.designation}</td>
+                  <td className="py-3.5 px-4 text-right font-mono font-bold text-[#111827]">{item.totalHours}h</td>
+                  <td className="py-3.5 px-4 text-right font-mono font-bold text-[#5932EA]">{item.billableHours}h</td>
+                  <td className="py-3.5 px-4 text-right font-mono text-slate-400">{item.nonBillableHours}h</td>
+                  <td className="py-3.5 px-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            isHigh ? 'bg-[#16C098]' : isMid ? 'bg-[#5932EA]' : 'bg-[#FFC5C5]'
                           }`}
-                        >
-                          {item.productivityRate}%
-                        </span>
+                          style={{ width: `${Math.min(100, item.productivityRate)}%` }}
+                        />
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <span className="font-mono text-xs font-bold w-12 text-right text-[#111827]">
+                        {item.productivityRate}%
+                      </span>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4 text-center">
+                    <span
+                      className={`inline-block px-3 py-1 rounded-md text-[10px] font-bold border ${
+                        isHigh
+                          ? 'bg-[#16C098]/10 text-[#008767] border-[#00B087]/30'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      {isHigh ? 'Optimal' : 'Absorbed'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Table Footer */}
+      <div className="flex items-center justify-between pt-4 text-xs text-[#B5B7C0] font-semibold flex-shrink-0">
+        <span>Showing {filtered.length} of {items.length} employees</span>
+        <div className="flex items-center gap-1.5">
+          <button className="w-6 h-6 rounded-md bg-[#F5F5F5] text-slate-600 flex items-center justify-center text-xs font-bold">&lt;</button>
+          <button className="w-6 h-6 rounded-md bg-[#5932EA] text-white flex items-center justify-center text-xs font-bold">1</button>
+          <button className="w-6 h-6 rounded-md bg-[#F5F5F5] text-slate-600 flex items-center justify-center text-xs font-bold">&gt;</button>
         </div>
       </div>
     </div>

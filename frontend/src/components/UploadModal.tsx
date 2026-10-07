@@ -64,81 +64,84 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Upload className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Upload className="w-5 h-5 text-blue-600" />
               Upload Spreadsheets
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Supports real-world messy headers and dates. Re-uploading a month updates records without wiping others.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Ingests timesheet, salary, and price files. Corrected months update without wiping other data.
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
+          <button
+            onClick={onClose}
+            className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleUpload} className="mt-5 space-y-4">
           {/* Timesheet */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-slate-200 flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <label className="text-xs font-semibold text-slate-800 flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                 1. Timesheet Spreadsheet (.xlsx)
               </label>
-              <span className="text-[11px] text-slate-400">One row per person, task, month</span>
+              <span className="text-[11px] text-slate-500">Person, task, month rows</span>
             </div>
             <input
               type="file"
               accept=".xlsx,.xls"
               onChange={(e) => setTimesheetFile(e.target.files?.[0] || null)}
-              className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
+              className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300 cursor-pointer"
             />
           </div>
 
           {/* Salary Overview */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-slate-200 flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+              <label className="text-xs font-semibold text-slate-800 flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-blue-600" />
                 2. Salary Overview (.xlsx)
               </label>
-              <span className="text-[11px] text-slate-400">Employee rows, month columns</span>
+              <span className="text-[11px] text-slate-500">Employee rows, month columns</span>
             </div>
             <input
               type="file"
               accept=".xlsx,.xls"
               onChange={(e) => setSalariesFile(e.target.files?.[0] || null)}
-              className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
+              className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300 cursor-pointer"
             />
           </div>
 
           {/* Project Prices */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-slate-200 flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-purple-400" />
+              <label className="text-xs font-semibold text-slate-800 flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-purple-600" />
                 3. Project Prices (.xlsx)
               </label>
-              <span className="text-[11px] text-slate-400">Ref Code, price, sales month</span>
+              <span className="text-[11px] text-slate-500">Ref Code, price, sales month</span>
             </div>
             <input
               type="file"
               accept=".xlsx,.xls"
               onChange={(e) => setPricesFile(e.target.files?.[0] || null)}
-              className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
+              className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300 cursor-pointer"
             />
           </div>
 
           {statusMessage && (
             <div
-              className={`flex items-center gap-2 p-3 rounded-xl text-xs font-medium ${
+              className={`flex items-center gap-2 p-3 rounded-2xl text-xs font-medium ${
                 statusMessage.type === 'success'
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
               }`}
             >
               {statusMessage.type === 'success' ? (
@@ -150,19 +153,19 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
               disabled={isUploading}
-              className="px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isUploading}
-              className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-[#141517] hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
             >
               {isUploading ? (
                 <>
