@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Briefcase,
@@ -8,40 +10,30 @@ import {
   PieChart,
   Building2,
   Table,
-  Settings,
-  Upload,
-  RefreshCw,
   ChevronRight,
   ShieldCheck,
-  Hexagon
+  Hexagon,
+  RefreshCw
 } from 'lucide-react';
+import { useData } from '../context/DataContext';
 
-interface SidebarProps {
-  currentTab: string;
-  setCurrentTab: (tab: string) => void;
-  onOpenUpload: () => void;
-  onOpenSettings: () => void;
-  onLoadSample: () => void;
-  isLoadingSample: boolean;
-  isReconciled: boolean;
-}
+export const Sidebar: React.FC = () => {
+  const pathname = usePathname();
+  const {
+    isReconciled,
+    setIsUploadOpen,
+    setIsSettingsOpen,
+    handleLoadSample,
+    isProcessing
+  } = useData();
 
-export const Sidebar: React.FC<SidebarProps> = ({
-  currentTab,
-  setCurrentTab,
-  onOpenUpload,
-  onOpenSettings,
-  onLoadSample,
-  isLoadingSample,
-  isReconciled
-}) => {
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'projects', label: 'Projects', icon: Briefcase },
-    { id: 'productivity', label: 'Productivity', icon: Users },
-    { id: 'categories', label: 'Categories', icon: PieChart },
-    { id: 'departments', label: 'Departments', icon: Building2 },
-    { id: 'matrix', label: 'Pivot Matrix', icon: Table }
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/projects', label: 'Projects', icon: Briefcase },
+    { href: '/productivity', label: 'Productivity', icon: Users },
+    { href: '/categories', label: 'Categories', icon: PieChart },
+    { href: '/departments', label: 'Departments', icon: Building2 },
+    { href: '/matrix', label: 'Pivot Matrix', icon: Table }
   ];
 
   return (
@@ -60,16 +52,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Navigation Items (Matching the Purple Active Pill in Screenshot) */}
+        {/* Real Navigation Links using next/link */}
         <nav className="space-y-1.5">
           {navItems.map((item) => {
-            const isActive = currentTab === item.id;
+            const isActive =
+              item.href === '/'
+                ? pathname === '/'
+                : pathname?.startsWith(item.href);
+
             const Icon = item.icon;
 
             return (
-              <button
-                key={item.id}
-                onClick={() => setCurrentTab(item.id)}
+              <Link
+                key={item.href}
+                href={item.href}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-semibold transition-all ${
                   isActive
                     ? 'bg-[#5932EA] text-white shadow-md shadow-[#5932EA]/25'
@@ -85,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     isActive ? 'text-white translate-x-0.5' : 'text-[#9197B3]'
                   }`}
                 />
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -93,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom Section */}
       <div className="space-y-4 pt-4 border-t border-slate-100">
-        {/* Zero-Overhead Audit Callout Card */}
+        {/* Audit Status Box */}
         <div className="bg-gradient-to-br from-[#5932EA]/10 via-[#5932EA]/5 to-transparent border border-[#5932EA]/15 rounded-2xl p-4 text-center">
           <div className="w-7 h-7 mx-auto rounded-full bg-[#5932EA] text-white flex items-center justify-center mb-2 shadow-sm">
             <ShieldCheck className="w-4 h-4" />
@@ -104,21 +100,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </p>
           <div className="grid grid-cols-2 gap-1.5 mt-3">
             <button
-              onClick={onOpenUpload}
-              className="py-1.5 px-2 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg border border-slate-200 transition-colors"
+              onClick={() => setIsUploadOpen(true)}
+              className="py-1.5 px-2 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
             >
               Upload
             </button>
             <button
-              onClick={onOpenSettings}
-              className="py-1.5 px-2 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg border border-slate-200 transition-colors"
+              onClick={() => setIsSettingsOpen(true)}
+              className="py-1.5 px-2 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
             >
               Settings
             </button>
           </div>
         </div>
 
-        {/* User Profile Card matching screenshot */}
+        {/* User Profile Card */}
         <div className="flex items-center justify-between px-2 pt-1">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
@@ -130,12 +126,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
           <button
-            onClick={onLoadSample}
-            disabled={isLoadingSample}
+            onClick={handleLoadSample}
+            disabled={isProcessing}
             title="Reload 2025 Data"
-            className="p-1.5 text-slate-400 hover:text-[#5932EA] hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-[#5932EA] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSample ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
