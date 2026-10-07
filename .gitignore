@@ -1,0 +1,8 @@
+node_modules
+.next
+dist
+.env*.local
+*.log
+.DS_Store
+backend/data/*.json
+!sample/*.xlsx
