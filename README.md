@@ -155,9 +155,15 @@ Commit Everything
 ## What We'd Build Next & Trade-offs
 
 ### What We'd Build Next
-- **Multi-Year Comparative Trends:** Side-by-side year-over-year comparisons (2023, 2024, 2025) tracking margin changes as headcount scaled.
-- **Role-Based Access Control (RBAC):** Restricting raw salary details while keeping billability and margin percentages accessible to project managers.
-- **Predictive Burn-Down Forecasts:** Early warnings when a project's cost burn rate exceeds 80% of contract price before delivery is complete.
+- **Risk & Budget Burn Alert System (Early Warnings):**
+  - **Budget Overrun Flags:** Automatic warning badges when actual burned project cost crosses 80% or 100% of contract value before delivery completion.
+  - **Loss-Making Project Detection:** Proactive detection for negative-margin or low-margin projects (<15%) so leadership can intervene before completion.
+- **"What-If" Scenario Planner (Executive Modeling Tool):**
+  - **Salary Increment Impact:** Simulate department salary hikes (e.g. +10%) to preview agency-wide gross margin impact before approvals.
+  - **Target Margin Pricing Calculator:** Reverse-calculate recommended project quotes required to achieve a desired target margin (e.g. 40%).
+  - **Overhead Sensitivity Analysis:** Model how shifts in fixed agency overhead alter monthly indirect cost absorption rates.
+- **Client-Level Profitability Roll-Up:** Aggregate multi-project accounts by client (`companyName`) to evaluate which clients deliver the highest net margins vs. disproportionate team hours.
+- **Role-Based Privacy Mode (RBAC):** Restrict raw salary details to executive leadership while keeping billability ratios and project health indicators accessible to project managers.
 
 ### Trade-offs Made
 - Chose embedded SQLite with Prisma ORM over external Dockerized PostgreSQL to ensure seamless, zero-friction setup on any machine while retaining full ACID transaction safety.
