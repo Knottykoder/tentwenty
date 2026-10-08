@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Users, Download, ChevronRight, ChevronDown } from 'lucide-react';
 import { DepartmentItem } from '../types/dashboard';
 import { exportToCsv } from '../utils/exportCsv';
+import { DepartmentDonutChart } from './DepartmentDonutChart';
 
 interface DepartmentsViewProps {
   departments: DepartmentItem[];
@@ -14,9 +15,21 @@ export const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, s
   const [expandedDept, setExpandedDept] = useState<string | null>(
     departments.length > 0 ? departments[0].department : null
   );
+  const [metricMode, setMetricMode] = useState<'cost' | 'hours'>('cost');
 
   const toggleDept = (deptName: string) => {
     setExpandedDept(expandedDept === deptName ? null : deptName);
+  };
+
+  const handleSelectFromChart = (deptName: string) => {
+    setExpandedDept(deptName);
+    // Smooth scroll to the department card in accordion list
+    setTimeout(() => {
+      const el = document.getElementById(`dept-card-${deptName}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 50);
   };
 
   const handleExportCsv = (dept: DepartmentItem) => {
@@ -35,17 +48,30 @@ export const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, s
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 flex-shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 flex-shrink-0">
         <div>
           <h2 className="text-xl font-extrabold text-[#111827] tracking-tight">
             Department Cost & Hours Drill-Down
           </h2>
           <p className="text-xs font-semibold text-[#16C098] mt-0.5">
-            Click any department to inspect individual headcount, hours, and full loaded costs
+            Click any chart slice or row to inspect individual headcount, hours, and fully-loaded costs
           </p>
         </div>
-        <span className="text-xs font-bold text-slate-500">{departments.length} Departments Total</span>
+        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-xl">
+          {departments.length} Departments Total
+        </span>
       </div>
+
+      {/* Interactive Donut / Pie Chart Section */}
+      {departments.length > 0 && (
+        <DepartmentDonutChart
+          departments={departments}
+          activeDept={expandedDept}
+          onSelectDept={handleSelectFromChart}
+          metricMode={metricMode}
+          setMetricMode={setMetricMode}
+        />
+      )}
 
       {/* Scrollable Container for Accordions */}
       <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-1 border-t border-b border-slate-100 py-3">
@@ -54,7 +80,12 @@ export const DepartmentsView: React.FC<DepartmentsViewProps> = ({ departments, s
           return (
             <div
               key={dept.department}
-              className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm transition-all"
+              id={`dept-card-${dept.department}`}
+              className={`rounded-2xl border bg-white overflow-hidden transition-all ${
+                isExpanded
+                  ? 'border-[#5932EA] shadow-md ring-1 ring-[#5932EA]/20'
+                  : 'border-slate-200 shadow-sm hover:border-slate-300'
+              }`}
             >
               <div
                 onClick={() => toggleDept(dept.department)}
