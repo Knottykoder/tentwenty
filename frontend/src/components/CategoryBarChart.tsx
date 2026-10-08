@@ -102,8 +102,8 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ categories }
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] p-4 flex flex-col h-full">
-      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap flex-shrink-0">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] p-5 flex flex-col h-full">
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-purple-50 text-[#5932EA] flex items-center justify-center flex-shrink-0">
             <Layers className="w-4 h-4" />
@@ -130,7 +130,7 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({ categories }
         </div>
       </div>
 
-      <div className="flex-1 min-h-[140px] relative">
+      <div className="flex-1 min-h-[220px] relative flex flex-col justify-center">
         <Bar data={chartData} options={chartOptions} />
       </div>
     </div>

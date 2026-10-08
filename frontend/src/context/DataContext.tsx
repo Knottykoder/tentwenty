@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { DashboardMetrics, ProjectMetric, MonthlyTrend } from '../types/dashboard';
+import { DashboardMetrics, MonthlyTrend } from '../types/dashboard';
+import { apiClient } from '../services/apiClient';
 
 interface DataContextType {
   selectedYear: string;
@@ -21,8 +22,6 @@ interface DataContextType {
   setIsSettingsOpen: (v: boolean) => void;
   isAuditOpen: boolean;
   setIsAuditOpen: (v: boolean) => void;
-  selectedProject: ProjectMetric | null;
-  setSelectedProject: (p: ProjectMetric | null) => void;
   handleLoadSample: () => Promise<void>;
   handleResetData: () => Promise<void>;
   handleUploadSuccess: () => Promise<void>;
@@ -52,13 +51,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<ProjectMetric | null>(null);
 
   const refetchGlobalMetrics = useCallback(async () => {
     try {
-      const res = await fetch(`/api/dashboard?year=${selectedYear}&month=${selectedMonth}`);
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await apiClient.getDashboard(selectedYear, selectedMonth);
       setMetrics(data.metrics || null);
       setHasData(Boolean(data.hasData));
       if (data.availableYears && data.availableYears.length > 0) {
@@ -82,7 +78,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleLoadSample = async () => {
     setIsProcessing(true);
     try {
-      await fetch('/api/sample-data', { method: 'POST' });
+      await apiClient.loadSampleData();
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await refetchGlobalMetrics();
     } catch (err) {
@@ -95,7 +91,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleResetData = async () => {
     setIsProcessing(true);
     try {
-      await fetch('/api/reset', { method: 'POST' });
+      await apiClient.resetData();
       await refetchGlobalMetrics();
     } catch (err) {
       console.error('Error resetting data:', err);
@@ -133,8 +129,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsSettingsOpen,
         isAuditOpen,
         setIsAuditOpen,
-        selectedProject,
-        setSelectedProject,
         handleLoadSample,
         handleResetData,
         handleUploadSuccess,

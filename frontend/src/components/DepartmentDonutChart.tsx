@@ -11,7 +11,7 @@ import {
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import { DepartmentItem } from '../types/dashboard';
-import { DollarSign, Clock, ArrowUpRight } from 'lucide-react';
+import { DollarSign, Clock, ArrowUpRight, PieChart } from 'lucide-react';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -125,20 +125,25 @@ export const DepartmentDonutChart: React.FC<DepartmentDonutChartProps> = ({
   };
 
   return (
-    <div className="bg-[#FBFBFF] rounded-2xl p-4 sm:p-5 border border-slate-200/80 mb-5 flex-shrink-0 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex flex-col h-full">
       {/* Top Bar: Title & Metric Toggle */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div>
-          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-            Department Allocation Distribution
-          </span>
-          <span className="text-[10px] text-slate-400 font-medium">
-            Powered by Chart.js Doughnut
-          </span>
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center flex-shrink-0">
+            <PieChart className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-[#111827] tracking-tight">
+              Department Allocation Distribution
+            </h3>
+            <span className="text-[10px] text-slate-400 font-medium">
+              Powered by Chart.js Doughnut
+            </span>
+          </div>
         </div>
 
         {/* Toggle Cost vs Hours */}
-        <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-sm">
+        <div className="flex items-center bg-slate-50 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold shadow-sm">
           <button
             onClick={() => setMetricMode('cost')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer ${
@@ -165,7 +170,7 @@ export const DepartmentDonutChart: React.FC<DepartmentDonutChartProps> = ({
       </div>
 
       {/* Main Grid: Left Chart.js Doughnut + Right Legend Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center flex-1">
         {/* Left: Chart.js Doughnut */}
         <div className="md:col-span-5 flex flex-col items-center justify-center relative">
           <div className="relative w-[210px] h-[210px] flex items-center justify-center">
@@ -236,10 +241,10 @@ export const DepartmentDonutChart: React.FC<DepartmentDonutChartProps> = ({
                 onClick={() => onSelectDept(dept.department)}
                 className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
                   isSelected
-                    ? 'bg-white border-[#5932EA] shadow-md ring-1 ring-[#5932EA]/20'
+                    ? 'bg-purple-50/50 border-[#5932EA] shadow-sm ring-1 ring-[#5932EA]/20'
                     : isHovered
-                    ? 'bg-white border-slate-300 shadow-sm'
-                    : 'bg-white/80 border-slate-200 hover:border-slate-300'
+                    ? 'bg-slate-50 border-slate-300 shadow-sm'
+                    : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-1.5">

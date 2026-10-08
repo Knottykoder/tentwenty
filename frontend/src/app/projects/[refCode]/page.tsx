@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { ProjectMetric } from '../../../types/dashboard';
 import { exportToCsv } from '../../../utils/exportCsv';
+import { useApiData } from '../../../hooks/useApiData';
+import { apiClient } from '../../../services/apiClient';
+import { LoadingState } from '../../../components/common/LoadingState';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,64 +35,18 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-interface ProjectDetailResponse {
-  project: ProjectMetric;
-  timeline: Array<{
-    month: string;
-    hours: number;
-    cost: number;
-  }>;
-}
-
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const refCode = params?.refCode as string;
 
-  const [data, setData] = useState<ProjectDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!refCode) return;
-
-    let isMounted = true;
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/projects/${encodeURIComponent(refCode)}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error('Project not found');
-        }
-        return res.json();
-      })
-      .then((json) => {
-        if (isMounted) {
-          setData(json);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message || 'Failed to load project details');
-        }
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [refCode]);
+  const { data, loading, error } = useApiData(
+    () => (refCode ? apiClient.getProjectDetail(refCode) : Promise.resolve(null)),
+    [refCode]
+  );
 
   if (loading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
-        <RefreshCw className="w-8 h-8 animate-spin text-[#5932EA] mb-2" />
-        <p className="text-xs font-semibold text-slate-400">Loading project economics & breakdown...</p>
-      </div>
-    );
+    return <LoadingState message="Loading project economics & breakdown..." />;
   }
 
   if (error || !data) {

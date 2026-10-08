@@ -1,50 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Download, Search } from 'lucide-react';
 import { exportToCsv } from '../utils/exportCsv';
-
-interface MatrixData {
-  categories: string[];
-  employees: {
-    employeeNo: string;
-    employeeName: string;
-    department: string;
-    hoursByCat: Record<string, number>;
-    total: number;
-  }[];
-  columnTotals: Record<string, number>;
-  grandTotal: number;
-}
+import { MatrixResponse } from '../services/apiClient';
 
 interface MatrixViewProps {
-  selectedYear?: string;
+  data: MatrixResponse;
   selectedMonth: string;
 }
 
-export const MatrixView: React.FC<MatrixViewProps> = ({ selectedYear = 'all', selectedMonth }) => {
-  const [data, setData] = useState<MatrixData | null>(null);
+export const MatrixView: React.FC<MatrixViewProps> = ({ data, selectedMonth }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/matrix?year=${selectedYear}&month=${selectedMonth}`)
-      .then((res) => res.json())
-      .then((resData) => {
-        setData(resData);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [selectedYear, selectedMonth]);
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-white rounded-3xl p-6 border border-slate-100">
-        <p className="text-xs font-semibold text-slate-400">Loading pivot matrix...</p>
-      </div>
-    );
-  }
 
   if (!data || !data.employees.length) {
     return (
@@ -103,7 +70,7 @@ export const MatrixView: React.FC<MatrixViewProps> = ({ selectedYear = 'all', se
 
           <button
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-sm cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             Export Pivot CSV

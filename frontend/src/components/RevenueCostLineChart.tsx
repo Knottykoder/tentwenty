@@ -240,7 +240,7 @@ export const RevenueCostLineChart: React.FC<RevenueCostLineChartProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] p-4 mb-4 flex-shrink-0 transition-all">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] p-5 flex-shrink-0 transition-all">
       {/* Header bar */}
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="flex items-center gap-2.5">

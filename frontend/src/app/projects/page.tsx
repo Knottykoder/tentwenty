@@ -1,49 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ProjectsView } from '../../components/ProjectsView';
-import { ProjectMetric } from '../../types/dashboard';
 import { useData } from '../../context/DataContext';
-import { RefreshCw } from 'lucide-react';
+import { useApiData } from '../../hooks/useApiData';
+import { apiClient } from '../../services/apiClient';
+import { LoadingState } from '../../components/common/LoadingState';
 
 export default function ProjectsPage() {
-  const { selectedYear, selectedMonth, setSelectedProject } = useData();
-  const [projects, setProjects] = useState<ProjectMetric[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { selectedYear, selectedMonth } = useData();
+  const { data, loading } = useApiData(
+    () => apiClient.getProjects(selectedYear, selectedMonth),
+    [selectedYear, selectedMonth]
+  );
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-
-    fetch(`/api/projects?year=${selectedYear}&month=${selectedMonth}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (isMounted) {
-          setProjects(data.projects || []);
-        }
-      })
-      .catch(console.error)
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedYear, selectedMonth]);
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
-        <RefreshCw className="w-8 h-8 animate-spin text-[#5932EA] mb-2" />
-        <p className="text-xs font-semibold text-slate-400">Loading projects...</p>
-      </div>
-    );
+  if (loading || !data) {
+    return <LoadingState message="Loading projects breakdown..." />;
   }
 
-  return (
-    <ProjectsView
-      projects={projects}
-    />
-  );
+  return <ProjectsView projects={data.projects || []} />;
 }
