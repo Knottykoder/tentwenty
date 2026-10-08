@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { DashboardMetrics, ProjectMetric } from '../types/dashboard';
+import { DashboardMetrics, ProjectMetric, MonthlyTrend } from '../types/dashboard';
 
 interface DataContextType {
   selectedYear: string;
@@ -11,6 +11,7 @@ interface DataContextType {
   availableYears: string[];
   availableMonths: string[];
   metrics: DashboardMetrics | null;
+  monthlyTrends: MonthlyTrend[];
   hasData: boolean;
   isProcessing: boolean;
   isReconciled: boolean;
@@ -36,6 +37,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [availableYears, setAvailableYears] = useState<string[]>(['2025']);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
   const [hasData, setHasData] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -64,6 +66,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       if (data.availableMonths) {
         setAvailableMonths(data.availableMonths);
+      }
+      if (data.monthlyTrends) {
+        setMonthlyTrends(data.monthlyTrends);
       }
     } catch (err) {
       console.error('Error fetching global metrics:', err);
@@ -118,6 +123,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         availableYears,
         availableMonths,
         metrics,
+        monthlyTrends,
         hasData,
         isProcessing,
         isReconciled,
