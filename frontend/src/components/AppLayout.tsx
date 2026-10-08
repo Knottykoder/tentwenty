@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { WelcomeHero } from './WelcomeHero';
 import { ParsingProgress } from './ParsingProgress';
@@ -8,6 +9,7 @@ import { UploadModal } from './UploadModal';
 import { SettingsModal } from './SettingsModal';
 import { ProjectDetailModal } from './ProjectDetailModal';
 import { AuditModal } from './AuditModal';
+import { AnimatedMetricNumber } from './AnimatedMetricNumber';
 import { useData } from '../context/DataContext';
 import {
   Clock,
@@ -43,6 +45,38 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     selectedProject,
     setSelectedProject
   } = useData();
+
+  const pathname = usePathname();
+  const isDashboard = pathname === '/';
+
+  const pageHeaders: Record<string, { title: string; subtitle: string }> = {
+    '/': {
+      title: 'Hello Leadership 👋,',
+      subtitle: 'Executive Margin & Commercial Profitability Dashboard'
+    },
+    '/projects': {
+      title: 'All Projects 📁',
+      subtitle: 'Active Commercial Accounts & Contract Margins'
+    },
+    '/productivity': {
+      title: 'Staff Productivity 👥',
+      subtitle: 'Billable vs Non-Billable Time Allocation'
+    },
+    '/categories': {
+      title: 'Category Breakdown 📊',
+      subtitle: 'Hours & Utilization by Category'
+    },
+    '/departments': {
+      title: 'Department Drill-down 🏢',
+      subtitle: 'Department-level Hours & Commercial Costs'
+    },
+    '/matrix': {
+      title: 'Pivot Matrix 🔢',
+      subtitle: 'Employee × Category Cross-Tabulation Matrix'
+    }
+  };
+
+  const currentHeader = pageHeaders[pathname] || pageHeaders['/'];
 
   // Helper to format month options nicely
   const monthLabels: Record<string, string> = {
@@ -84,10 +118,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 flex-shrink-0">
               <div>
                 <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
-                  Hello Leadership 👋,
+                  {currentHeader.title}
                 </h1>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Executive Margin & Commercial Profitability Dashboard
+                  {currentHeader.subtitle}
                 </p>
               </div>
 
@@ -157,79 +191,81 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </div>
             </div>
 
-            {/* 5 Core Metric Cards required by brief: Total hours, billable hours, cost, revenue and margin */}
-            {metrics && (
+            {/* 5 Core Metric Cards: ONLY displayed on Dashboard page (/) */}
+            {isDashboard && metrics && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-5 flex-shrink-0">
                 {/* 1. Total Hours */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5 card-float-transition">
                   <div className="w-11 h-11 rounded-full bg-[#EBF2FE] text-[#2563EB] flex items-center justify-center flex-shrink-0">
                     <Clock className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-[11px] text-[#ACACAC] font-medium block">Total Hours</span>
                     <h3 className="text-lg font-bold text-[#333333] tracking-tight">
-                      {metrics.totalHours.toLocaleString()}h
+                      <AnimatedMetricNumber value={metrics.totalHours} suffix="h" decimals={1} />
                     </h3>
                     <span className="text-[10px] text-slate-500 font-semibold block">All Staff Logged</span>
                   </div>
                 </div>
 
                 {/* 2. Billable Hours */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5 card-float-transition">
                   <div className="w-11 h-11 rounded-full bg-[#E5F9FF] text-[#06B6D4] flex items-center justify-center flex-shrink-0">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-[11px] text-[#ACACAC] font-medium block">Billable Hours</span>
                     <h3 className="text-lg font-bold text-[#06B6D4] tracking-tight">
-                      {metrics.billableHours.toLocaleString()}h
+                      <AnimatedMetricNumber value={metrics.billableHours} suffix="h" decimals={1} />
                     </h3>
                     <span className="text-[10px] text-emerald-600 font-bold block">
-                      {metrics.billableHoursPercent}% Productivity
+                      <AnimatedMetricNumber value={metrics.billableHoursPercent} suffix="% Productivity" decimals={1} />
                     </span>
                   </div>
                 </div>
 
                 {/* 3. Cost */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5 card-float-transition">
                   <div className="w-11 h-11 rounded-full bg-[#FFF0EB] text-[#FF6A55] flex items-center justify-center flex-shrink-0">
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-[11px] text-[#ACACAC] font-medium block">Total Cost</span>
                     <h3 className="text-lg font-bold text-[#333333] tracking-tight">
-                      AED {metrics.totalCost.toLocaleString()}
+                      <AnimatedMetricNumber value={metrics.totalCost} prefix="AED " decimals={0} />
                     </h3>
                     <span className="text-[10px] text-slate-500 font-semibold block">Direct + Indirect</span>
                   </div>
                 </div>
 
                 {/* 4. Revenue */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5 card-float-transition">
                   <div className="w-11 h-11 rounded-full bg-[#D3FFE7] text-[#00AC4F] flex items-center justify-center flex-shrink-0">
                     <DollarSign className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-[11px] text-[#ACACAC] font-medium block">Total Revenue</span>
                     <h3 className="text-lg font-bold text-[#00AC4F] tracking-tight">
-                      AED {metrics.totalRevenue.toLocaleString()}
+                      <AnimatedMetricNumber value={metrics.totalRevenue} prefix="AED " decimals={0} />
                     </h3>
-                    <span className="text-[10px] text-slate-500 font-semibold block">{metrics.projectCount} Projects</span>
+                    <span className="text-[10px] text-slate-500 font-semibold block">
+                      <AnimatedMetricNumber value={metrics.projectCount} suffix=" Projects" />
+                    </span>
                   </div>
                 </div>
 
                 {/* 5. Margin */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5">
+                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_4px_16px_rgba(0,0,0,0.02)] flex items-center gap-3.5 card-float-transition">
                   <div className="w-11 h-11 rounded-full bg-[#E7EDFF] text-[#5932EA] flex items-center justify-center flex-shrink-0">
                     <TrendingUp className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="text-[11px] text-[#ACACAC] font-medium block">Gross Margin</span>
                     <h3 className="text-lg font-bold text-[#5932EA] tracking-tight">
-                      {metrics.grossMarginPercent}%
+                      <AnimatedMetricNumber value={metrics.grossMarginPercent} suffix="%" decimals={1} />
                     </h3>
                     <span className="text-[10px] text-[#5932EA] font-bold block">
-                      Profit: AED {metrics.totalProfit.toLocaleString()}
+                      Profit: <AnimatedMetricNumber value={metrics.totalProfit} prefix="AED " decimals={0} />
                     </span>
                   </div>
                 </div>
