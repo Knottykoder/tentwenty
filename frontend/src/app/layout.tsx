@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { DataProvider } from "../context/DataContext";
 import { AppLayout } from "../components/AppLayout";
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="h-full overflow-hidden bg-[#FAFBFF]">
         <DataProvider>
-          <AppLayout>{children}</AppLayout>
+          <Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-[#FAFBFF]" />}>
+            <AppLayout>{children}</AppLayout>
+          </Suspense>
         </DataProvider>
       </body>
     </html>

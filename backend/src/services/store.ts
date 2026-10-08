@@ -221,6 +221,102 @@ class Store {
   }
 
   /**
+   * Commit ALL parsed and validated entries in ONE atomic Prisma transaction.
+   * If any operation fails, the entire batch automatically rolls back completely.
+   */
+  public async commitBatchTransaction(batch: {
+    timesheets?: TimesheetEntry[];
+    salaries?: SalaryEntry[];
+    projectPrices?: ProjectPriceEntry[];
+  }): Promise<{
+    timesheetCount: number;
+    salaryCount: number;
+    priceCount: number;
+  }> {
+    const { timesheets = [], salaries = [], projectPrices = [] } = batch;
+
+    await prisma.$transaction(
+      async (tx) => {
+        // 1. Commit Timesheets (if present)
+        if (timesheets.length > 0) {
+          const uploadedMonths = Array.from(new Set(timesheets.map((t) => t.month)));
+          await tx.timesheet.deleteMany({
+            where: { month: { in: uploadedMonths } }
+          });
+
+          await tx.timesheet.createMany({
+            data: timesheets.map((t) => ({
+              month: t.month,
+              rawMonth: t.rawMonth || '',
+              employeeNo: t.employeeNo,
+              employeeName: t.employeeName,
+              expenseType: t.expenseType || '',
+              department: t.department || '',
+              designation: t.designation || '',
+              category: t.category || '',
+              refCode: t.refCode || '',
+              taskOrProjectName: t.taskOrProjectName || '',
+              companyName: t.companyName || '',
+              description: t.description || '',
+              hours: t.hours
+            }))
+          });
+        }
+
+        // 2. Commit Salaries (if present)
+        if (salaries.length > 0) {
+          const uploadedMonths = Array.from(new Set(salaries.map((s) => s.month)));
+          await tx.salary.deleteMany({
+            where: { month: { in: uploadedMonths } }
+          });
+
+          await tx.salary.createMany({
+            data: salaries.map((s) => ({
+              employeeNo: s.employeeNo,
+              employeeName: s.employeeName,
+              month: s.month,
+              salary: s.salary
+            }))
+          });
+        }
+
+        // 3. Commit Project Prices (if present)
+        if (projectPrices.length > 0) {
+          for (const p of projectPrices) {
+            await tx.projectPrice.upsert({
+              where: { refCode: p.refCode },
+              create: {
+                refCode: p.refCode,
+                projectName: p.projectName,
+                price: p.price,
+                salesMonth: p.salesMonth || '',
+                category: p.category || '',
+                status: p.status || 'in progress'
+              },
+              update: {
+                projectName: p.projectName,
+                price: p.price,
+                salesMonth: p.salesMonth || '',
+                category: p.category || '',
+                status: p.status || 'in progress'
+              }
+            });
+          }
+        }
+      },
+      {
+        timeout: 30000
+      }
+    );
+
+    return {
+      timesheetCount: timesheets.length,
+      salaryCount: salaries.length,
+      priceCount: projectPrices.length
+    };
+  }
+
+  /**
    * Load sample Excel files directly into SQLite
    */
   public async loadSampleData(): Promise<{ success: boolean; message: string }> {

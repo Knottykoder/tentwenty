@@ -11,6 +11,8 @@ import {
   parseProjectPricesSheet,
   parseTimesheetSheet
 } from '../services/excelParser.js';
+import { validateAllUploads } from '../services/validator.js';
+import { TimesheetEntry, SalaryEntry, ProjectPriceEntry } from '../types/index.js';
 
 function getFilterPeriod(year?: string, month?: string): string | undefined {
   if (year && year !== 'all' && month && month !== 'all') {
@@ -49,14 +51,16 @@ export async function apiRoutes(fastify: FastifyInstance) {
     return { success: true, message: 'Data cleared successfully' };
   });
 
-  // Upload spreadsheets
+  // Upload spreadsheets (Parse ALL -> Validate ALL -> ONE Prisma Transaction -> Commit All)
   fastify.post('/upload', async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       const parts = req.parts();
-      let timesheetCount = 0;
-      let salaryCount = 0;
-      let priceCount = 0;
-      const errors: string[] = [];
+      const parseErrors: string[] = [];
+
+      // Step 1: Parse ALL files in-memory (No database writes during stream)
+      let parsedTimesheets: { filename: string; entries: TimesheetEntry[] } | undefined;
+      let parsedSalaries: { filename: string; entries: SalaryEntry[] } | undefined;
+      let parsedPrices: { filename: string; entries: ProjectPriceEntry[] } | undefined;
 
       for await (const part of parts) {
         if (part.type === 'file') {
@@ -130,48 +134,65 @@ export async function apiRoutes(fastify: FastifyInstance) {
 
             if (detectedType === 'salary') {
               const entries = parseSalariesSheet(buf);
-              if (entries.length === 0) {
-                errors.push(`${part.filename}: No valid salary entries found.`);
-              } else {
-                await store.upsertSalaries(entries);
-                salaryCount += entries.length;
-              }
+              parsedSalaries = { filename: part.filename, entries };
             } else if (detectedType === 'price') {
               const entries = parseProjectPricesSheet(buf);
-              if (entries.length === 0) {
-                errors.push(`${part.filename}: No valid project price rows found.`);
-              } else {
-                await store.upsertProjectPrices(entries);
-                priceCount += entries.length;
-              }
+              parsedPrices = { filename: part.filename, entries };
             } else if (detectedType === 'timesheet') {
               const entries = parseTimesheetSheet(buf);
-              if (entries.length === 0) {
-                errors.push(`${part.filename}: No valid timesheet rows found.`);
-              } else {
-                await store.upsertTimesheets(entries);
-                timesheetCount += entries.length;
-              }
+              parsedTimesheets = { filename: part.filename, entries };
             } else {
-              errors.push(`Unrecognized file type: ${part.filename}. Expected timesheet, salary, or project price file.`);
+              parseErrors.push(`Unrecognized file type: ${part.filename}. Expected timesheet, salary, or project price file.`);
             }
           } catch (fileErr: unknown) {
             const msg = fileErr instanceof Error ? fileErr.message : String(fileErr);
-            errors.push(`Error parsing ${part.filename}: ${msg}`);
+            parseErrors.push(`Error parsing ${part.filename}: ${msg}`);
           }
         }
       }
 
-      const hasParsedData = timesheetCount > 0 || salaryCount > 0 || priceCount > 0;
+      // If parsing failed on any file, stop immediately before validation & database
+      if (parseErrors.length > 0) {
+        reply.status(400);
+        return {
+          success: false,
+          message: 'File parsing failed. No changes were committed to database.',
+          errors: parseErrors
+        };
+      }
+
+      // Step 2: Validate ALL files
+      const validation = validateAllUploads({
+        timesheets: parsedTimesheets,
+        salaries: parsedSalaries,
+        prices: parsedPrices
+      });
+
+      if (!validation.isValid) {
+        reply.status(400);
+        return {
+          success: false,
+          message: 'Validation failed on uploaded files. No database changes were made.',
+          errors: validation.errors
+        };
+      }
+
+      // Step 3 & 4: ONE Prisma Transaction -> commit everything
+      const commitResult = await store.commitBatchTransaction({
+        timesheets: parsedTimesheets?.entries,
+        salaries: parsedSalaries?.entries,
+        projectPrices: parsedPrices?.entries
+      });
+
       return {
-        success: errors.length === 0 && hasParsedData,
-        message: `Parsed: ${timesheetCount} timesheet rows, ${salaryCount} salary entries, ${priceCount} projects.`,
-        errors
+        success: true,
+        message: `Committed in 1 atomic transaction: ${commitResult.timesheetCount} timesheets, ${commitResult.salaryCount} salaries, ${commitResult.priceCount} projects.`,
+        errors: []
       };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       reply.status(500);
-      return { success: false, message: 'Upload failed: ' + msg };
+      return { success: false, message: 'Upload transaction failed: ' + msg };
     }
   });
 

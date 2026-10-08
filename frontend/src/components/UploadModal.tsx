@@ -14,7 +14,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
   const [salariesFile, setSalariesFile] = useState<File | null>(null);
   const [pricesFile, setPricesFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+    errors?: string[];
+  } | null>(null);
 
   if (!isOpen) return null;
 
@@ -52,7 +56,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
       } else {
         setStatusMessage({
           type: 'error',
-          text: data.message || (data.errors ? data.errors.join(', ') : 'Upload failed.')
+          text: data.message || 'Upload failed.',
+          errors: Array.isArray(data.errors) ? data.errors : undefined
         });
       }
     } catch (err: unknown) {
@@ -138,18 +143,27 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onSuc
 
           {statusMessage && (
             <div
-              className={`flex items-center gap-2 p-3 rounded-2xl text-xs font-medium ${
+              className={`p-3.5 rounded-2xl text-xs font-medium ${
                 statusMessage.type === 'success'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   : 'bg-red-50 text-red-700 border border-red-200'
               }`}
             >
-              {statusMessage.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <div className="flex items-center gap-2">
+                {statusMessage.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                )}
+                <span className="font-semibold">{statusMessage.text}</span>
+              </div>
+              {statusMessage.errors && statusMessage.errors.length > 0 && (
+                <ul className="mt-2.5 ml-6 list-disc space-y-1 text-[11px] text-red-600 max-h-32 overflow-y-auto">
+                  {statusMessage.errors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
               )}
-              <span>{statusMessage.text}</span>
             </div>
           )}
 
