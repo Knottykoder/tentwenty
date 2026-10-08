@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Timesheet {
+  id                Int     @id @default(autoincrement())
+  month             String
+  rawMonth          String  @default("")
+  employeeNo        String
+  employeeName      String
+  expenseType       String  @default("")
+  department        String  @default("")
+  designation       String  @default("")
+  category          String  @default("")
+  refCode           String  @default("")
+  taskOrProjectName String  @default("")
+  companyName       String  @default("")
+  description       String  @default("")
+  hours             Float
+
+  @@index([month])
+  @@index([employeeNo])
+  @@index([category])
+  @@index([refCode])
+}
+
+model Salary {
+  id           Int     @id @default(autoincrement())
+  employeeNo   String
+  employeeName String
+  month        String
+  salary       Float
+
+  @@unique([employeeNo, month])
+  @@index([month])
+}
+
+model ProjectPrice {
+  refCode     String  @id
+  projectName String
+  price       Float
+  salesMonth  String  @default("")
+  category    String  @default("")
+  status      String  @default("in progress")
+
+  @@index([salesMonth])
+}
+
+model SystemConfig {
+  id                 Int     @id @default(1)
+  monthlyOverhead    Float   @default(0)
+  billableCategories String  @default("[\"Projects\",\"Enhancements\",\"Hosting\"]")
+}

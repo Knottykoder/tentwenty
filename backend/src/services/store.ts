@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prisma } from '../db/prisma.js';
 import {
   TimesheetEntry,
   SalaryEntry,
@@ -16,8 +17,6 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
-const STORE_FILE = path.join(DATA_DIR, 'store.json');
 const SAMPLE_DIR = path.resolve(__dirname, '../../../sample');
 
 export interface AppStoreData {
@@ -29,104 +28,202 @@ export interface AppStoreData {
 }
 
 class Store {
-  private data: AppStoreData;
+  /**
+   * Fetch all application data from SQLite via Prisma
+   */
+  public async getData(): Promise<AppStoreData> {
+    const [timesheetRecords, salaryRecords, priceRecords, configRecord] = await Promise.all([
+      prisma.timesheet.findMany({ orderBy: { id: 'asc' } }),
+      prisma.salary.findMany({ orderBy: { id: 'asc' } }),
+      prisma.projectPrice.findMany({ orderBy: { refCode: 'asc' } }),
+      prisma.systemConfig.findFirst({ where: { id: 1 } })
+    ]);
 
-  constructor() {
-    this.data = {
-      timesheets: [],
-      salaries: [],
-      projectPrices: [],
-      config: { ...DEFAULT_CONFIG },
+    const timesheets: TimesheetEntry[] = timesheetRecords.map((t) => ({
+      id: String(t.id),
+      month: t.month,
+      rawMonth: t.rawMonth,
+      employeeNo: t.employeeNo,
+      employeeName: t.employeeName,
+      expenseType: t.expenseType,
+      department: t.department,
+      designation: t.designation,
+      category: t.category,
+      refCode: t.refCode,
+      taskOrProjectName: t.taskOrProjectName,
+      companyName: t.companyName,
+      description: t.description,
+      hours: t.hours
+    }));
+
+    const salaries: SalaryEntry[] = salaryRecords.map((s) => ({
+      employeeNo: s.employeeNo,
+      employeeName: s.employeeName,
+      month: s.month,
+      salary: s.salary
+    }));
+
+    const projectPrices: ProjectPriceEntry[] = priceRecords.map((p) => ({
+      refCode: p.refCode,
+      projectName: p.projectName,
+      price: p.price,
+      salesMonth: p.salesMonth,
+      category: p.category,
+      status: p.status
+    }));
+
+    let config: AppConfig = { ...DEFAULT_CONFIG };
+    if (configRecord) {
+      try {
+        const parsedCategories = JSON.parse(configRecord.billableCategories);
+        config = {
+          monthlyOverhead: configRecord.monthlyOverhead,
+          billableCategories: Array.isArray(parsedCategories)
+            ? parsedCategories
+            : DEFAULT_CONFIG.billableCategories
+        };
+      } catch {
+        config = {
+          monthlyOverhead: configRecord.monthlyOverhead,
+          billableCategories: DEFAULT_CONFIG.billableCategories
+        };
+      }
+    }
+
+    return {
+      timesheets,
+      salaries,
+      projectPrices,
+      config,
       lastUpdated: new Date().toISOString()
     };
-    this.init();
-  }
-
-  private init() {
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      if (fs.existsSync(STORE_FILE)) {
-        const raw = fs.readFileSync(STORE_FILE, 'utf-8');
-        this.data = JSON.parse(raw);
-      }
-    } catch (err) {
-      console.error('Error initializing store:', err);
-    }
-  }
-
-  public save() {
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      this.data.lastUpdated = new Date().toISOString();
-      fs.writeFileSync(STORE_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('Failed to save store to disk:', err);
-    }
-  }
-
-  public getData(): AppStoreData {
-    return this.data;
-  }
-
-  public updateConfig(newConfig: Partial<AppConfig>) {
-    this.data.config = {
-      ...this.data.config,
-      ...newConfig
-    };
-    this.save();
-    return this.data.config;
   }
 
   /**
-   * Upsert timesheets. If targetMonth is provided, replaces that month's rows without destroying the rest.
-   * Otherwise deduplicates by unique key.
+   * Update configuration in SQLite
    */
-  public upsertTimesheets(newEntries: TimesheetEntry[], targetMonth?: string) {
-    if (targetMonth) {
-      // Keep everything EXCEPT targetMonth
-      const filtered = this.data.timesheets.filter((t) => t.month !== targetMonth);
-      this.data.timesheets = [...filtered, ...newEntries];
-    } else {
-      // Find which months are in newEntries
-      const uploadedMonths = new Set(newEntries.map((t) => t.month));
-      // Remove those months from existing and insert new
-      const filtered = this.data.timesheets.filter((t) => !uploadedMonths.has(t.month));
-      this.data.timesheets = [...filtered, ...newEntries];
-    }
-    this.save();
+  public async updateConfig(newConfig: Partial<AppConfig>): Promise<AppConfig> {
+    const existing = await prisma.systemConfig.findFirst({ where: { id: 1 } });
+    const currentCategories: string[] = existing
+      ? JSON.parse(existing.billableCategories)
+      : DEFAULT_CONFIG.billableCategories;
+    const currentOverhead = existing ? existing.monthlyOverhead : DEFAULT_CONFIG.monthlyOverhead;
+
+    const updatedCategories = newConfig.billableCategories ?? currentCategories;
+    const updatedOverhead = newConfig.monthlyOverhead ?? currentOverhead;
+
+    await prisma.systemConfig.upsert({
+      where: { id: 1 },
+      create: {
+        id: 1,
+        monthlyOverhead: updatedOverhead,
+        billableCategories: JSON.stringify(updatedCategories)
+      },
+      update: {
+        monthlyOverhead: updatedOverhead,
+        billableCategories: JSON.stringify(updatedCategories)
+      }
+    });
+
+    return {
+      monthlyOverhead: updatedOverhead,
+      billableCategories: updatedCategories
+    };
+  }
+
+  /**
+   * Upsert timesheets. Replaces months present in uploaded data.
+   */
+  public async upsertTimesheets(newEntries: TimesheetEntry[], targetMonth?: string) {
+    if (newEntries.length === 0) return;
+
+    const monthsToDelete = targetMonth
+      ? [targetMonth]
+      : Array.from(new Set(newEntries.map((t) => t.month)));
+
+    await prisma.$transaction(async (tx) => {
+      await tx.timesheet.deleteMany({
+        where: {
+          month: { in: monthsToDelete }
+        }
+      });
+
+      await tx.timesheet.createMany({
+        data: newEntries.map((t) => ({
+          month: t.month,
+          rawMonth: t.rawMonth || '',
+          employeeNo: t.employeeNo,
+          employeeName: t.employeeName,
+          expenseType: t.expenseType || '',
+          department: t.department || '',
+          designation: t.designation || '',
+          category: t.category || '',
+          refCode: t.refCode || '',
+          taskOrProjectName: t.taskOrProjectName || '',
+          companyName: t.companyName || '',
+          description: t.description || '',
+          hours: t.hours
+        }))
+      });
+    });
   }
 
   /**
    * Upsert salaries. Replaces months present in uploaded data.
    */
-  public upsertSalaries(newEntries: SalaryEntry[]) {
-    const uploadedMonths = new Set(newEntries.map((s) => s.month));
-    const filtered = this.data.salaries.filter((s) => !uploadedMonths.has(s.month));
-    this.data.salaries = [...filtered, ...newEntries];
-    this.save();
+  public async upsertSalaries(newEntries: SalaryEntry[]) {
+    if (newEntries.length === 0) return;
+
+    const uploadedMonths = Array.from(new Set(newEntries.map((s) => s.month)));
+
+    await prisma.$transaction(async (tx) => {
+      await tx.salary.deleteMany({
+        where: {
+          month: { in: uploadedMonths }
+        }
+      });
+
+      await tx.salary.createMany({
+        data: newEntries.map((s) => ({
+          employeeNo: s.employeeNo,
+          employeeName: s.employeeName,
+          month: s.month,
+          salary: s.salary
+        }))
+      });
+    });
   }
 
   /**
-   * Upsert project prices. Updates existing by refCode or appends.
+   * Upsert project prices into SQLite.
    */
-  public upsertProjectPrices(newEntries: ProjectPriceEntry[]) {
-    const priceMap = new Map(this.data.projectPrices.map((p) => [p.refCode, p]));
+  public async upsertProjectPrices(newEntries: ProjectPriceEntry[]) {
     for (const p of newEntries) {
-      priceMap.set(p.refCode, p);
+      await prisma.projectPrice.upsert({
+        where: { refCode: p.refCode },
+        create: {
+          refCode: p.refCode,
+          projectName: p.projectName,
+          price: p.price,
+          salesMonth: p.salesMonth || '',
+          category: p.category || '',
+          status: p.status || 'in progress'
+        },
+        update: {
+          projectName: p.projectName,
+          price: p.price,
+          salesMonth: p.salesMonth || '',
+          category: p.category || '',
+          status: p.status || 'in progress'
+        }
+      });
     }
-    this.data.projectPrices = Array.from(priceMap.values());
-    this.save();
   }
 
   /**
-   * Load the 3 sample files bundled in the repo
+   * Load sample Excel files directly into SQLite
    */
-  public loadSampleData(): { success: boolean; message: string } {
+  public async loadSampleData(): Promise<{ success: boolean; message: string }> {
     try {
       const salPath = path.join(SAMPLE_DIR, 'salaries-2025.xlsx');
       const pricesPath = path.join(SAMPLE_DIR, 'project-prices-2025.xlsx');
@@ -140,31 +237,89 @@ class Store {
       const pricesBuf = fs.readFileSync(pricesPath);
       const tsBuf = fs.readFileSync(tsPath);
 
-      this.data.salaries = parseSalariesSheet(salariesBuf);
-      this.data.projectPrices = parseProjectPricesSheet(pricesBuf);
-      this.data.timesheets = parseTimesheetSheet(tsBuf);
-      this.data.config = { ...DEFAULT_CONFIG };
-      this.save();
+      const salaries = parseSalariesSheet(salariesBuf);
+      const projectPrices = parseProjectPricesSheet(pricesBuf);
+      const timesheets = parseTimesheetSheet(tsBuf);
+
+      await this.clearAll();
+
+      await prisma.$transaction(async (tx) => {
+        // 1. Insert salaries
+        await tx.salary.createMany({
+          data: salaries.map((s) => ({
+            employeeNo: s.employeeNo,
+            employeeName: s.employeeName,
+            month: s.month,
+            salary: s.salary
+          }))
+        });
+
+        // 2. Insert project prices
+        await tx.projectPrice.createMany({
+          data: projectPrices.map((p) => ({
+            refCode: p.refCode,
+            projectName: p.projectName,
+            price: p.price,
+            salesMonth: p.salesMonth || '',
+            category: p.category || '',
+            status: p.status || 'in progress'
+          }))
+        });
+
+        // 3. Insert timesheets
+        await tx.timesheet.createMany({
+          data: timesheets.map((t) => ({
+            month: t.month,
+            rawMonth: t.rawMonth || '',
+            employeeNo: t.employeeNo,
+            employeeName: t.employeeName,
+            expenseType: t.expenseType || '',
+            department: t.department || '',
+            designation: t.designation || '',
+            category: t.category || '',
+            refCode: t.refCode || '',
+            taskOrProjectName: t.taskOrProjectName || '',
+            companyName: t.companyName || '',
+            description: t.description || '',
+            hours: t.hours
+          }))
+        });
+
+        // 4. Default config
+        await tx.systemConfig.upsert({
+          where: { id: 1 },
+          create: {
+            id: 1,
+            monthlyOverhead: DEFAULT_CONFIG.monthlyOverhead,
+            billableCategories: JSON.stringify(DEFAULT_CONFIG.billableCategories)
+          },
+          update: {
+            monthlyOverhead: DEFAULT_CONFIG.monthlyOverhead,
+            billableCategories: JSON.stringify(DEFAULT_CONFIG.billableCategories)
+          }
+        });
+      });
 
       return {
         success: true,
-        message: `Sample data loaded: ${this.data.salaries.length} salaries, ${this.data.projectPrices.length} projects, ${this.data.timesheets.length} timesheets`
+        message: `Sample data loaded into SQLite: ${salaries.length} salaries, ${projectPrices.length} projects, ${timesheets.length} timesheets`
       };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      return { success: false, message: 'Failed to load sample data: ' + msg };
+      return { success: false, message: 'Failed to load sample data into SQLite: ' + msg };
     }
   }
 
-  public clearAll() {
-    this.data = {
-      timesheets: [],
-      salaries: [],
-      projectPrices: [],
-      config: { ...DEFAULT_CONFIG },
-      lastUpdated: new Date().toISOString()
-    };
-    this.save();
+  /**
+   * Clear all records from SQLite
+   */
+  public async clearAll() {
+    await prisma.$transaction([
+      prisma.timesheet.deleteMany(),
+      prisma.salary.deleteMany(),
+      prisma.projectPrice.deleteMany(),
+      prisma.systemConfig.deleteMany()
+    ]);
   }
 }
 

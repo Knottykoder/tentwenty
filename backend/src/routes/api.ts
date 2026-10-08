@@ -39,13 +39,13 @@ export async function apiRoutes(fastify: FastifyInstance) {
 
   // Load sample data in 1-click
   fastify.post('/sample-data', async () => {
-    const res = store.loadSampleData();
+    const res = await store.loadSampleData();
     return res;
   });
 
   // Reset/Clear data to return to Welcome screen
   fastify.post('/reset', async () => {
-    store.clearAll();
+    await store.clearAll();
     return { success: true, message: 'Data cleared successfully' };
   });
 
@@ -133,7 +133,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
               if (entries.length === 0) {
                 errors.push(`${part.filename}: No valid salary entries found.`);
               } else {
-                store.upsertSalaries(entries);
+                await store.upsertSalaries(entries);
                 salaryCount += entries.length;
               }
             } else if (detectedType === 'price') {
@@ -141,7 +141,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
               if (entries.length === 0) {
                 errors.push(`${part.filename}: No valid project price rows found.`);
               } else {
-                store.upsertProjectPrices(entries);
+                await store.upsertProjectPrices(entries);
                 priceCount += entries.length;
               }
             } else if (detectedType === 'timesheet') {
@@ -149,7 +149,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
               if (entries.length === 0) {
                 errors.push(`${part.filename}: No valid timesheet rows found.`);
               } else {
-                store.upsertTimesheets(entries);
+                await store.upsertTimesheets(entries);
                 timesheetCount += entries.length;
               }
             } else {
@@ -177,7 +177,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
 
   // Settings
   fastify.get('/settings', async () => {
-    const data = store.getData();
+    const data = await store.getData();
     // Get list of all available categories in timesheet
     const categories = Array.from(new Set(data.timesheets.map((t) => t.category))).sort();
     return {
@@ -187,14 +187,14 @@ export async function apiRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/settings', async (req: FastifyRequest<{ Body: { monthlyOverhead?: number; billableCategories?: string[] } }>) => {
-    const updated = store.updateConfig(req.body);
+    const updated = await store.updateConfig(req.body);
     return { success: true, config: updated };
   });
 
   // Dashboard Overview
   fastify.get('/dashboard', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
     const { month, year } = req.query;
-    const data = store.getData();
+    const data = await store.getData();
     const filterPeriod = getFilterPeriod(year, month);
 
     const { metrics, monthlyReconciliations } = calculateDashboardMetrics(
@@ -238,7 +238,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
   // Projects list
   fastify.get('/projects', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string; category?: string; status?: string } }>) => {
     const { month, year, category, status } = req.query;
-    const data = store.getData();
+    const data = await store.getData();
     const filterPeriod = getFilterPeriod(year, month);
     const monthlyContexts = computeMonthlyContexts(data.timesheets, data.salaries, data.config);
     let projects = calculateProjectMetrics(data.timesheets, data.projectPrices, monthlyContexts, data.config, filterPeriod);
@@ -256,7 +256,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
   // Single Project Deep Dive
   fastify.get('/projects/:refCode', async (req: FastifyRequest<{ Params: { refCode: string } }>, reply: FastifyReply) => {
     const { refCode } = req.params;
-    const data = store.getData();
+    const data = await store.getData();
     const monthlyContexts = computeMonthlyContexts(data.timesheets, data.salaries, data.config);
     const projects = calculateProjectMetrics(data.timesheets, data.projectPrices, monthlyContexts, data.config);
 
@@ -300,7 +300,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
   // Productivity
   fastify.get('/productivity', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
     const { month, year } = req.query;
-    const data = store.getData();
+    const data = await store.getData();
     const billableSet = new Set(data.config.billableCategories);
     const filterPeriod = getFilterPeriod(year, month);
     const ts = filterTimesheetsByPeriod(data.timesheets, filterPeriod);
@@ -361,7 +361,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
   // Categories
   fastify.get('/categories', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
     const { month, year } = req.query;
-    const data = store.getData();
+    const data = await store.getData();
     const billableSet = new Set(data.config.billableCategories);
     const filterPeriod = getFilterPeriod(year, month);
     const ts = filterTimesheetsByPeriod(data.timesheets, filterPeriod);
@@ -396,7 +396,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
   // Department Drill-down
   fastify.get('/departments', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
     const { month, year } = req.query;
-    const data = store.getData();
+    const data = await store.getData();
     const monthlyContexts = computeMonthlyContexts(data.timesheets, data.salaries, data.config);
     const billableSet = new Set(data.config.billableCategories);
     const filterPeriod = getFilterPeriod(year, month);
@@ -488,7 +488,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
 
   // Audit view: monthly breakdown of rates and reconciliation
   fastify.get('/audit', async () => {
-    const data = store.getData();
+    const data = await store.getData();
     const monthlyContexts = computeMonthlyContexts(data.timesheets, data.salaries, data.config);
     const months = Array.from(monthlyContexts.keys()).sort();
 
@@ -523,7 +523,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
   // Employee x Category Pivot Matrix (Stretch feature)
   fastify.get('/matrix', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
     const { month, year } = req.query;
-    const data = store.getData();
+    const data = await store.getData();
     const filterPeriod = getFilterPeriod(year, month);
     const ts = filterTimesheetsByPeriod(data.timesheets, filterPeriod);
 
