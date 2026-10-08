@@ -16,11 +16,12 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
-import { ProjectMetric } from '../../../types/dashboard';
+import { ProjectMetric, EmployeeContribution } from '../../../types/dashboard';
 import { exportToCsv } from '../../../utils/exportCsv';
 import { useApiData } from '../../../hooks/useApiData';
 import { apiClient } from '../../../services/apiClient';
 import { LoadingState } from '../../../components/common/LoadingState';
+import { DataTable } from '../../../components/common/DataTable';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -351,77 +352,82 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Per-Employee Contribution & Profitability Table */}
-      <div className="rounded-2xl border border-slate-100 overflow-hidden shadow-xs flex-1 min-h-0 flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-[#F9FBFF]">
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#5932EA]" />
-              Employee Level Contribution & Profitability
-            </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Revenue Share = Contract Price × (Hours ÷ Total Hours) • Net Profit = Revenue Share − Loaded Cost
-            </p>
+      <DataTable<EmployeeContribution>
+        variant="embedded"
+        className="flex-1 min-h-0"
+        maxHeight="max-h-[320px]"
+        title={
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-[#F9FBFF] -mx-6 -mt-6 mb-0">
+            <div>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#5932EA]" />
+                Employee Level Contribution & Profitability
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Revenue Share = Contract Price × (Hours ÷ Total Hours) • Net Profit = Revenue Share − Loaded Cost
+              </p>
+            </div>
+            <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
+              {project.employeeContributions.length} Contributors
+            </span>
           </div>
-          <span className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
-            {project.employeeContributions.length} Contributors
-          </span>
-        </div>
-
-        <div className="overflow-x-auto overflow-y-auto max-h-[320px]">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-white text-[#B5B7C0] font-semibold text-[11px] border-b border-slate-100">
-              <tr>
-                <th className="py-2.5 px-4">Staff Member</th>
-                <th className="py-2.5 px-4">Department</th>
-                <th className="py-2.5 px-4 text-right">Logged Hours</th>
-                <th className="py-2.5 px-4 text-right">Loaded Cost</th>
-                <th className="py-2.5 px-4 text-right">Revenue Share</th>
-                <th className="py-2.5 px-4 text-right">Net Profit</th>
-                <th className="py-2.5 px-4 text-right">Margin %</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-[#292D32]">
-              {project.employeeContributions.map((emp) => {
-                const empProfitable = emp.profit >= 0;
-                return (
-                  <tr key={emp.employeeName} className="hover:bg-[#F9FBFF] transition-colors">
-                    <td className="py-3 px-4 font-bold text-[#111827]">
-                      {emp.employeeName}
-                      <span className="text-[10px] text-slate-400 font-mono ml-2 font-normal">
-                        #{emp.employeeNo}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-500 font-medium">{emp.department}</td>
-                    <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">
-                      {emp.hours}h
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono text-slate-700">
-                      AED {emp.cost.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-[#111827]">
-                      AED {emp.revenueShare.toLocaleString()}
-                    </td>
-                    <td
-                      className={`py-3 px-4 text-right font-mono font-bold ${
-                        empProfitable ? 'text-emerald-600' : 'text-red-500'
-                      }`}
-                    >
-                      AED {emp.profit.toLocaleString()}
-                    </td>
-                    <td
-                      className={`py-3 px-4 text-right font-mono font-extrabold ${
-                        empProfitable ? 'text-emerald-700' : 'text-red-600'
-                      }`}
-                    >
-                      {emp.profitabilityMargin}%
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        }
+        data={project.employeeContributions}
+        getRowKey={(emp) => emp.employeeNo}
+        columns={[
+          {
+            header: 'Staff Member',
+            cell: (emp) => (
+              <span className="font-bold text-[#111827]">
+                {emp.employeeName}
+                <span className="text-[10px] text-slate-400 font-mono ml-2 font-normal">
+                  #{emp.employeeNo}
+                </span>
+              </span>
+            )
+          },
+          {
+            header: 'Department',
+            cell: (emp) => <span className="text-slate-500 font-medium">{emp.department}</span>
+          },
+          {
+            header: 'Logged Hours',
+            align: 'right',
+            className: 'font-mono font-medium text-slate-700',
+            cell: (emp) => `${emp.hours}h`
+          },
+          {
+            header: 'Loaded Cost',
+            align: 'right',
+            className: 'font-mono text-slate-700',
+            cell: (emp) => `AED ${emp.cost.toLocaleString()}`
+          },
+          {
+            header: 'Revenue Share',
+            align: 'right',
+            className: 'font-mono font-bold text-[#111827]',
+            cell: (emp) => `AED ${emp.revenueShare.toLocaleString()}`
+          },
+          {
+            header: 'Net Profit',
+            align: 'right',
+            cell: (emp) => (
+              <span className={`font-mono font-bold ${emp.profit >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                AED ${emp.profit.toLocaleString()}
+              </span>
+            )
+          },
+          {
+            header: 'Margin %',
+            align: 'right',
+            cell: (emp) => (
+              <span className={`font-mono font-extrabold ${emp.profit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                {emp.profitabilityMargin}%
+              </span>
+            )
+          }
+        ]}
+      />
     </div>
   );
 }
