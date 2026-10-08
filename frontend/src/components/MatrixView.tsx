@@ -18,24 +18,25 @@ interface MatrixData {
 }
 
 interface MatrixViewProps {
+  selectedYear?: string;
   selectedMonth: string;
 }
 
-export const MatrixView: React.FC<MatrixViewProps> = ({ selectedMonth }) => {
+export const MatrixView: React.FC<MatrixViewProps> = ({ selectedYear = 'all', selectedMonth }) => {
   const [data, setData] = useState<MatrixData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/matrix?month=${selectedMonth}`)
+    fetch(`/api/matrix?year=${selectedYear}&month=${selectedMonth}`)
       .then((res) => res.json())
       .then((resData) => {
         setData(resData);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   if (loading) {
     return (

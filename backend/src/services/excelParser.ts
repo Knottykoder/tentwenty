@@ -24,18 +24,23 @@ export function parseSalariesSheet(buffer: Buffer): SalaryEntry[] {
 
   headers.forEach((h, colIdx) => {
     const str = String(h || '').trim().toLowerCase();
-    if (str.includes('no') || str.includes('id') || str.includes('code')) {
-      empNoCol = colIdx;
-    } else if (str.includes('employee') || str.includes('name')) {
-      empNameCol = colIdx;
-    }
 
-    // Check if this column is a month
+    // 1. Check if this column is a month FIRST so 'november' does not match 'no'
+    let isMonth = false;
     for (const m of MONTH_NAMES) {
       if (str.includes(m)) {
         monthCols.push({ colIndex: colIdx, monthName: str });
+        isMonth = true;
         break;
       }
+    }
+    if (isMonth) return;
+
+    // 2. Employee Number and Name columns
+    if (str.includes('no') || str.includes('id') || str.includes('code')) {
+      empNoCol = colIdx;
+    } else if (str.includes('employee') || str.includes('name') || str.includes('staff')) {
+      empNameCol = colIdx;
     }
   });
 
@@ -90,9 +95,9 @@ export function parseProjectPricesSheet(buffer: Buffer): ProjectPriceEntry[] {
   headers.forEach((h, idx) => {
     const s = String(h || '').toLowerCase();
     if (s.includes('ref')) refCol = idx;
-    else if (s.includes('project') || s.includes('name')) nameCol = idx;
-    else if (s.includes('price')) priceCol = idx;
-    else if (s.includes('sales') || s.includes('month')) monthCol = idx;
+    else if (s.includes('price') || s.includes('cost') || s.includes('amount')) priceCol = idx;
+    else if (s.includes('project') || s.includes('name') || s.includes('title') || s.includes('description')) nameCol = idx;
+    else if (s.includes('sales') || s.includes('month') || s.includes('date')) monthCol = idx;
     else if (s.includes('category')) catCol = idx;
     else if (s.includes('status')) statusCol = idx;
   });

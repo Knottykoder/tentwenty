@@ -7,7 +7,7 @@ import { useData } from '../../context/DataContext';
 import { RefreshCw } from 'lucide-react';
 
 export default function ProductivityPage() {
-  const { selectedMonth } = useData();
+  const { selectedYear, selectedMonth } = useData();
   const [productivity, setProductivity] = useState<ProductivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +15,7 @@ export default function ProductivityPage() {
     let isMounted = true;
     setLoading(true);
 
-    fetch(`/api/productivity?month=${selectedMonth}`)
+    fetch(`/api/productivity?year=${selectedYear}&month=${selectedMonth}`)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted) {
@@ -30,7 +30,7 @@ export default function ProductivityPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   if (loading) {
     return (

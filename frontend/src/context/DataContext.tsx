@@ -4,8 +4,11 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { DashboardMetrics, ProjectMetric } from '../types/dashboard';
 
 interface DataContextType {
+  selectedYear: string;
+  setSelectedYear: (y: string) => void;
   selectedMonth: string;
   setSelectedMonth: (m: string) => void;
+  availableYears: string[];
   availableMonths: string[];
   metrics: DashboardMetrics | null;
   hasData: boolean;
@@ -28,11 +31,20 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | null>(null);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [selectedYear, setSelectedYearState] = useState('2025');
   const [selectedMonth, setSelectedMonth] = useState('all');
+  const [availableYears, setAvailableYears] = useState<string[]>(['2025']);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [hasData, setHasData] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  const setSelectedYear = (newYear: string) => {
+    setSelectedYearState(newYear);
+    if (selectedMonth !== 'all' && newYear !== 'all' && !selectedMonth.startsWith(newYear)) {
+      setSelectedMonth('all');
+    }
+  };
 
   // Modals
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -42,18 +54,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refetchGlobalMetrics = useCallback(async () => {
     try {
-      const res = await fetch(`/api/dashboard?month=${selectedMonth}`);
+      const res = await fetch(`/api/dashboard?year=${selectedYear}&month=${selectedMonth}`);
       if (!res.ok) return;
       const data = await res.json();
       setMetrics(data.metrics || null);
       setHasData(Boolean(data.hasData));
+      if (data.availableYears && data.availableYears.length > 0) {
+        setAvailableYears(data.availableYears);
+      }
       if (data.availableMonths) {
         setAvailableMonths(data.availableMonths);
       }
     } catch (err) {
       console.error('Error fetching global metrics:', err);
     }
-  }, [selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   useEffect(() => {
     refetchGlobalMetrics();
@@ -63,7 +78,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsProcessing(true);
     try {
       await fetch('/api/sample-data', { method: 'POST' });
-      // Keep animated progress visible for 2 seconds
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await refetchGlobalMetrics();
     } catch (err) {
@@ -97,8 +111,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <DataContext.Provider
       value={{
+        selectedYear,
+        setSelectedYear,
         selectedMonth,
         setSelectedMonth,
+        availableYears,
         availableMonths,
         metrics,
         hasData,

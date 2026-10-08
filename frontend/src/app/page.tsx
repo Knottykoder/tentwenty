@@ -7,7 +7,7 @@ import { useData } from '../context/DataContext';
 import { RefreshCw } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { selectedMonth, setSelectedProject } = useData();
+  const { selectedYear, selectedMonth, setSelectedProject } = useData();
   const [projects, setProjects] = useState<ProjectMetric[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +15,7 @@ export default function DashboardPage() {
     let isMounted = true;
     setLoading(true);
 
-    fetch(`/api/projects?month=${selectedMonth}`)
+    fetch(`/api/projects?year=${selectedYear}&month=${selectedMonth}`)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted) {
@@ -30,7 +30,7 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   if (loading) {
     return (

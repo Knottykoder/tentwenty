@@ -8,6 +8,7 @@ import {
   EmployeeContribution,
   MonthlyReconciliation
 } from '../types/index.js';
+import { normalizeMonth } from './normalizer.js';
 
 export const DEFAULT_CONFIG: AppConfig = {
   billableCategories: ['Projects', 'Enhancements', 'Hosting'],
@@ -138,13 +139,23 @@ export function calculateProjectMetrics(
   timesheets: TimesheetEntry[],
   projectPrices: ProjectPriceEntry[],
   monthlyContexts: Map<string, MonthCalculationContext>,
-  config: AppConfig
+  config: AppConfig,
+  filterPeriod?: string
 ): ProjectMetric[] {
   const billableSet = new Set(config.billableCategories);
 
-  // Group billable timesheets by Ref Code
+  // Filter timesheets if filterPeriod is given
+  const activeTs = filterPeriod && filterPeriod !== 'all'
+    ? timesheets.filter((t) =>
+        filterPeriod.length === 4
+          ? t.month.startsWith(filterPeriod)
+          : t.month === filterPeriod
+      )
+    : timesheets;
+
+  // Group billable timesheets by Ref Code for the active period
   const tsByProject = new Map<string, TimesheetEntry[]>();
-  for (const ts of timesheets) {
+  for (const ts of activeTs) {
     if (!billableSet.has(ts.category)) continue;
     if (!ts.refCode) continue;
     if (!tsByProject.has(ts.refCode)) {
@@ -153,23 +164,62 @@ export function calculateProjectMetrics(
     tsByProject.get(ts.refCode)!.push(ts);
   }
 
+  // Also group all-time billable timesheets so we know lifetime hours for proration
+  const lifetimeTsByProject = new Map<string, TimesheetEntry[]>();
+  for (const ts of timesheets) {
+    if (!billableSet.has(ts.category)) continue;
+    if (!ts.refCode) continue;
+    if (!lifetimeTsByProject.has(ts.refCode)) {
+      lifetimeTsByProject.set(ts.refCode, []);
+    }
+    lifetimeTsByProject.get(ts.refCode)!.push(ts);
+  }
+
   const priceMap = new Map<string, ProjectPriceEntry>();
   for (const p of projectPrices) {
     priceMap.set(p.refCode, p);
   }
 
-  // Also include any project ref codes that are in prices but have no timesheet entries yet
-  const allRefCodes = new Set([...priceMap.keys(), ...tsByProject.keys()]);
+  // Determine target projects for the period
+  let targetRefCodes: Set<string>;
+  if (filterPeriod && filterPeriod !== 'all' && filterPeriod.length > 4) {
+    // Specific month (e.g. "2025-01"): show projects active in that month or sold in that month
+    targetRefCodes = new Set<string>();
+    for (const ref of tsByProject.keys()) {
+      targetRefCodes.add(ref);
+    }
+    for (const [ref, p] of priceMap.entries()) {
+      if (normalizeMonth(p.salesMonth) === filterPeriod) {
+        targetRefCodes.add(ref);
+      }
+    }
+  } else if (filterPeriod && filterPeriod !== 'all' && filterPeriod.length === 4) {
+    // Specific year (e.g. "2025"): show projects active or sold in that year
+    targetRefCodes = new Set<string>();
+    for (const ref of tsByProject.keys()) {
+      targetRefCodes.add(ref);
+    }
+    for (const [ref, p] of priceMap.entries()) {
+      if (normalizeMonth(p.salesMonth).startsWith(filterPeriod)) {
+        targetRefCodes.add(ref);
+      }
+    }
+  } else {
+    // All time
+    targetRefCodes = new Set([...priceMap.keys(), ...tsByProject.keys()]);
+  }
+
   const results: ProjectMetric[] = [];
 
-  for (const refCode of allRefCodes) {
+  for (const refCode of targetRefCodes) {
     const priceEntry = priceMap.get(refCode);
     const rows = tsByProject.get(refCode) || [];
+    const lifetimeRows = lifetimeTsByProject.get(refCode) || [];
 
-    const projectName = priceEntry?.projectName || (rows[0]?.taskOrProjectName ?? refCode);
-    const category = priceEntry?.category || (rows[0]?.category ?? 'Projects');
+    const projectName = priceEntry?.projectName || (rows[0]?.taskOrProjectName ?? lifetimeRows[0]?.taskOrProjectName ?? refCode);
+    const category = priceEntry?.category || (rows[0]?.category ?? lifetimeRows[0]?.category ?? 'Projects');
     const status = priceEntry?.status || 'in progress';
-    const salesMonth = priceEntry?.salesMonth || (rows[0]?.rawMonth ?? '');
+    const salesMonth = priceEntry?.salesMonth || (rows[0]?.rawMonth ?? lifetimeRows[0]?.rawMonth ?? '');
     const price = priceEntry?.price || 0;
 
     let totalHours = 0;
@@ -255,7 +305,7 @@ export function calculateDashboardMetrics(
   projectPrices: ProjectPriceEntry[],
   salaries: SalaryEntry[],
   config: AppConfig,
-  filterMonth?: string // optional YYYY-MM
+  filterPeriod?: string // optional YYYY-MM or YYYY
 ): {
   metrics: DashboardMetrics;
   monthlyReconciliations: MonthlyReconciliation[];
@@ -298,8 +348,14 @@ export function calculateDashboardMetrics(
     totalOverheadAcrossMonths += ctx.monthlyOverhead;
   }
 
-  // Filter timesheets if specific month is requested
-  const filteredTs = filterMonth ? timesheets.filter((t) => t.month === filterMonth) : timesheets;
+  // Filter timesheets if specific month/year is requested
+  const filteredTs = filterPeriod && filterPeriod !== 'all'
+    ? timesheets.filter((t) =>
+        filterPeriod.length === 4
+          ? t.month.startsWith(filterPeriod)
+          : t.month === filterPeriod
+      )
+    : timesheets;
 
   let totalHours = 0;
   let billableHours = 0;
@@ -322,22 +378,28 @@ export function calculateDashboardMetrics(
   }
 
   // Revenue calculation
-  // If full year: sum of all project prices.
-  // If specific month: attribute revenue from project prices whose salesMonth aligns or prorated.
   let periodRevenue = 0;
-  if (!filterMonth) {
+  if (!filterPeriod || filterPeriod === 'all') {
     periodRevenue = projectPrices.reduce((acc, p) => acc + p.price, 0);
-  } else {
-    // If month filter is applied, sum project prices for that sales month
-    // Fallback: prorate project price based on billable hours logged in that month
+  } else if (filterPeriod.length === 4) {
+    // 4-digit year like '2025'
     const matchingPrices = projectPrices.filter((p) => {
-      // compare normalized sales month or raw month
-      return p.salesMonth.toLowerCase().includes(filterMonth.toLowerCase());
+      const nm = normalizeMonth(p.salesMonth);
+      return nm.startsWith(filterPeriod);
+    });
+    periodRevenue = matchingPrices.length > 0
+      ? matchingPrices.reduce((acc, p) => acc + p.price, 0)
+      : projectPrices.reduce((acc, p) => acc + p.price, 0);
+  } else {
+    // Specific month like '2025-01'
+    const matchingPrices = projectPrices.filter((p) => {
+      const nm = normalizeMonth(p.salesMonth);
+      return nm === filterPeriod;
     });
     if (matchingPrices.length > 0) {
       periodRevenue = matchingPrices.reduce((acc, p) => acc + p.price, 0);
     } else {
-      // Burn-rate attribution: (month billable hours / total project billable hours) * price
+      // Burn-rate attribution if no exact contract signed in this month:
       for (const p of projectPrices) {
         const pAllRows = timesheets.filter((t) => t.refCode === p.refCode && billableSet.has(t.category));
         const pMonthRows = filteredTs.filter((t) => t.refCode === p.refCode && billableSet.has(t.category));

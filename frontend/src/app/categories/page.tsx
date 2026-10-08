@@ -7,7 +7,7 @@ import { useData } from '../../context/DataContext';
 import { RefreshCw } from 'lucide-react';
 
 export default function CategoriesPage() {
-  const { selectedMonth } = useData();
+  const { selectedYear, selectedMonth } = useData();
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [totalHours, setTotalHours] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -16,7 +16,7 @@ export default function CategoriesPage() {
     let isMounted = true;
     setLoading(true);
 
-    fetch(`/api/categories?month=${selectedMonth}`)
+    fetch(`/api/categories?year=${selectedYear}&month=${selectedMonth}`)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted) {
@@ -32,7 +32,7 @@ export default function CategoriesPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   if (loading) {
     return (

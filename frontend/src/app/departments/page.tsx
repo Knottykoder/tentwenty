@@ -7,7 +7,7 @@ import { useData } from '../../context/DataContext';
 import { RefreshCw } from 'lucide-react';
 
 export default function DepartmentsPage() {
-  const { selectedMonth } = useData();
+  const { selectedYear, selectedMonth } = useData();
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +15,7 @@ export default function DepartmentsPage() {
     let isMounted = true;
     setLoading(true);
 
-    fetch(`/api/departments?month=${selectedMonth}`)
+    fetch(`/api/departments?year=${selectedYear}&month=${selectedMonth}`)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted) {
@@ -30,7 +30,7 @@ export default function DepartmentsPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedMonth]);
+  }, [selectedYear, selectedMonth]);
 
   if (loading) {
     return (

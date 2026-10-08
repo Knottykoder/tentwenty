@@ -5,7 +5,7 @@ import { MatrixView } from '../../components/MatrixView';
 import { useData } from '../../context/DataContext';
 
 export default function MatrixPage() {
-  const { selectedMonth } = useData();
+  const { selectedYear, selectedMonth } = useData();
 
-  return <MatrixView selectedMonth={selectedMonth} />;
+  return <MatrixView selectedYear={selectedYear} selectedMonth={selectedMonth} />;
 }

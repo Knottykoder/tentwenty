@@ -11,6 +11,25 @@ import {
   parseTimesheetSheet
 } from '../services/excelParser.js';
 
+function getFilterPeriod(year?: string, month?: string): string | undefined {
+  if (year && year !== 'all' && month && month !== 'all') {
+    return month.includes('-') ? month : `${year}-${month.padStart(2, '0')}`;
+  } else if (month && month !== 'all') {
+    return month;
+  } else if (year && year !== 'all') {
+    return year;
+  }
+  return undefined;
+}
+
+function filterTimesheetsByPeriod(timesheets: import('../types/index.js').TimesheetEntry[], period?: string) {
+  if (!period || period === 'all') return timesheets;
+  if (period.length === 4) {
+    return timesheets.filter((t) => t.month.startsWith(period));
+  }
+  return timesheets.filter((t) => t.month === period);
+}
+
 export async function apiRoutes(fastify: FastifyInstance) {
   // Health check
   fastify.get('/health', async () => {
@@ -112,18 +131,14 @@ export async function apiRoutes(fastify: FastifyInstance) {
   fastify.get('/dashboard', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
     const { month, year } = req.query;
     const data = store.getData();
-
-    let filterMonth: string | undefined = undefined;
-    if (month && month !== 'all') {
-      filterMonth = month;
-    }
+    const filterPeriod = getFilterPeriod(year, month);
 
     const { metrics, monthlyReconciliations } = calculateDashboardMetrics(
       data.timesheets,
       data.projectPrices,
       data.salaries,
       data.config,
-      filterMonth
+      filterPeriod
     );
 
     // Monthly breakdown for charts
@@ -143,28 +158,32 @@ export async function apiRoutes(fastify: FastifyInstance) {
     });
 
     // Available filters
-    const availableMonths = Array.from(new Set(data.timesheets.map((t) => t.month))).sort();
+    const allMonths = Array.from(new Set(data.timesheets.map((t) => t.month))).sort();
+    const availableYears = Array.from(new Set(allMonths.map((m) => m.slice(0, 4)))).sort();
 
     return {
       metrics,
       monthlyReconciliations,
       monthlyTrends,
-      availableMonths,
+      availableMonths: allMonths,
+      availableYears,
       hasData: data.timesheets.length > 0
     };
   });
 
   // Projects list
-  fastify.get('/projects', async (req: FastifyRequest<{ Querystring: { month?: string; category?: string; status?: string } }>) => {
+  fastify.get('/projects', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string; category?: string; status?: string } }>) => {
+    const { month, year, category, status } = req.query;
     const data = store.getData();
+    const filterPeriod = getFilterPeriod(year, month);
     const monthlyContexts = computeMonthlyContexts(data.timesheets, data.salaries, data.config);
-    let projects = calculateProjectMetrics(data.timesheets, data.projectPrices, monthlyContexts, data.config);
+    let projects = calculateProjectMetrics(data.timesheets, data.projectPrices, monthlyContexts, data.config, filterPeriod);
 
-    if (req.query.category && req.query.category !== 'all') {
-      projects = projects.filter((p) => p.category.toLowerCase() === req.query.category?.toLowerCase());
+    if (category && category !== 'all') {
+      projects = projects.filter((p) => p.category.toLowerCase() === category.toLowerCase());
     }
-    if (req.query.status && req.query.status !== 'all') {
-      projects = projects.filter((p) => p.status.toLowerCase() === req.query.status?.toLowerCase());
+    if (status && status !== 'all') {
+      projects = projects.filter((p) => p.status.toLowerCase() === status.toLowerCase());
     }
 
     return { projects };
@@ -215,15 +234,12 @@ export async function apiRoutes(fastify: FastifyInstance) {
   });
 
   // Productivity
-  fastify.get('/productivity', async (req: FastifyRequest<{ Querystring: { month?: string } }>) => {
-    const { month } = req.query;
+  fastify.get('/productivity', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
+    const { month, year } = req.query;
     const data = store.getData();
     const billableSet = new Set(data.config.billableCategories);
-
-    let ts = data.timesheets;
-    if (month && month !== 'all') {
-      ts = ts.filter((t) => t.month === month);
-    }
+    const filterPeriod = getFilterPeriod(year, month);
+    const ts = filterTimesheetsByPeriod(data.timesheets, filterPeriod);
 
     const monthlyContexts = computeMonthlyContexts(data.timesheets, data.salaries, data.config);
 
@@ -279,15 +295,12 @@ export async function apiRoutes(fastify: FastifyInstance) {
   });
 
   // Categories
-  fastify.get('/categories', async (req: FastifyRequest<{ Querystring: { month?: string } }>) => {
-    const { month } = req.query;
+  fastify.get('/categories', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
+    const { month, year } = req.query;
     const data = store.getData();
     const billableSet = new Set(data.config.billableCategories);
-
-    let ts = data.timesheets;
-    if (month && month !== 'all') {
-      ts = ts.filter((t) => t.month === month);
-    }
+    const filterPeriod = getFilterPeriod(year, month);
+    const ts = filterTimesheetsByPeriod(data.timesheets, filterPeriod);
 
     const catHours = new Map<string, number>();
     let totalHours = 0;
@@ -317,16 +330,13 @@ export async function apiRoutes(fastify: FastifyInstance) {
   });
 
   // Department Drill-down
-  fastify.get('/departments', async (req: FastifyRequest<{ Querystring: { month?: string } }>) => {
-    const { month } = req.query;
+  fastify.get('/departments', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
+    const { month, year } = req.query;
     const data = store.getData();
     const monthlyContexts = computeMonthlyContexts(data.timesheets, data.salaries, data.config);
     const billableSet = new Set(data.config.billableCategories);
-
-    let ts = data.timesheets;
-    if (month && month !== 'all') {
-      ts = ts.filter((t) => t.month === month);
-    }
+    const filterPeriod = getFilterPeriod(year, month);
+    const ts = filterTimesheetsByPeriod(data.timesheets, filterPeriod);
 
     const deptMap = new Map<
       string,
@@ -447,14 +457,11 @@ export async function apiRoutes(fastify: FastifyInstance) {
   });
 
   // Employee x Category Pivot Matrix (Stretch feature)
-  fastify.get('/matrix', async (req: FastifyRequest<{ Querystring: { month?: string } }>) => {
-    const { month } = req.query;
+  fastify.get('/matrix', async (req: FastifyRequest<{ Querystring: { month?: string; year?: string } }>) => {
+    const { month, year } = req.query;
     const data = store.getData();
-
-    let ts = data.timesheets;
-    if (month && month !== 'all') {
-      ts = ts.filter((t) => t.month === month);
-    }
+    const filterPeriod = getFilterPeriod(year, month);
+    const ts = filterTimesheetsByPeriod(data.timesheets, filterPeriod);
 
     const categories = Array.from(new Set(ts.map((t) => t.category))).sort();
     const employeeMap = new Map<string, { employeeNo: string; employeeName: string; department: string; hoursByCat: Record<string, number>; total: number }>();
