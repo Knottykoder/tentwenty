@@ -7,7 +7,6 @@ import { WelcomeHero } from './WelcomeHero';
 import { ParsingProgress } from './ParsingProgress';
 import { UploadModal } from './UploadModal';
 import { SettingsModal } from './SettingsModal';
-import { ProjectDetailModal } from './ProjectDetailModal';
 import { AuditModal } from './AuditModal';
 import { AnimatedMetricNumber } from './AnimatedMetricNumber';
 import { useData } from '../context/DataContext';
@@ -76,7 +75,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     }
   };
 
-  const currentHeader = pageHeaders[pathname] || pageHeaders['/'];
+  const currentHeader = pathname.startsWith('/projects/')
+    ? {
+        title: 'Project Economics & Margin Drilldown 📁',
+        subtitle: 'Individual Contract Profitability, Burn Timeline & Employee Contributions'
+      }
+    : pageHeaders[pathname] || pageHeaders['/'];
 
   // Helper to format month options nicely
   const monthLabels: Record<string, string> = {
@@ -291,11 +295,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onSave={() => window.location.reload()}
-      />
-
-      <ProjectDetailModal
-        project={selectedProject}
-        onClose={() => setSelectedProject(null)}
       />
 
       <AuditModal

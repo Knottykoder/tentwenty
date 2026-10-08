@@ -44,7 +44,6 @@ export default function ProjectsPage() {
   return (
     <ProjectsView
       projects={projects}
-      onSelectProject={(p) => setSelectedProject(p)}
     />
   );
 }

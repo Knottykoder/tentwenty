@@ -1,16 +1,17 @@
-'use client';
-
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Search, Download, ExternalLink } from 'lucide-react';
 import { ProjectMetric } from '../types/dashboard';
 import { exportToCsv } from '../utils/exportCsv';
 
 interface ProjectsViewProps {
   projects: ProjectMetric[];
-  onSelectProject: (p: ProjectMetric) => void;
+  onSelectProject?: (p: ProjectMetric) => void;
 }
 
-export const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onSelectProject }) => {
+export const ProjectsView: React.FC<ProjectsViewProps> = ({ projects }) => {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -125,7 +126,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onSelectPr
               return (
                 <tr
                   key={p.refCode}
-                  onClick={() => onSelectProject(p)}
+                  onClick={() => router.push(`/projects/${encodeURIComponent(p.refCode)}`)}
                   className="hover:bg-[#F9FBFF] cursor-pointer transition-colors group"
                 >
                   <td className="py-3 px-4 font-mono font-bold text-[#5932EA]">
@@ -164,10 +165,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ projects, onSelectPr
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <button className="text-[#5932EA] text-xs font-bold group-hover:underline flex items-center justify-center gap-1 mx-auto">
+                    <Link
+                      href={`/projects/${encodeURIComponent(p.refCode)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[#5932EA] text-xs font-bold group-hover:underline flex items-center justify-center gap-1 mx-auto"
+                    >
                       View
                       <ExternalLink className="w-3 h-3" />
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               );
