@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { store } from '../services/store.js';
 import {
@@ -64,7 +65,70 @@ export async function apiRoutes(fastify: FastifyInstance) {
           const fieldname = part.fieldname.toLowerCase();
 
           try {
-            if (fieldname.includes('salary') || filename.includes('salary')) {
+            // 1. Keyword check on fieldname and filename
+            const isSalaryName =
+              fieldname.includes('salar') ||
+              filename.includes('salar') ||
+              fieldname.includes('payroll') ||
+              filename.includes('payroll');
+
+            const isPriceName =
+              fieldname.includes('price') ||
+              filename.includes('price') ||
+              fieldname.includes('contract') ||
+              filename.includes('contract');
+
+            const isTimesheetName =
+              fieldname.includes('time') ||
+              filename.includes('time') ||
+              fieldname.includes('hour') ||
+              filename.includes('hour');
+
+            let detectedType: 'salary' | 'price' | 'timesheet' | null = null;
+            if (isSalaryName) {
+              detectedType = 'salary';
+            } else if (isPriceName) {
+              detectedType = 'price';
+            } else if (isTimesheetName) {
+              detectedType = 'timesheet';
+            } else {
+              // 2. Fallback: Sniff sheet columns/content if names are generic
+              try {
+                const wb = XLSX.read(buf, { type: 'buffer' });
+                const firstSheet = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1 });
+                const headerText = rows
+                  .slice(0, 5)
+                  .flat()
+                  .map((cell) => String(cell ?? '').toLowerCase())
+                  .join(' ');
+
+                if (
+                  headerText.includes('salary') ||
+                  headerText.includes('salaries') ||
+                  headerText.includes('employee no') ||
+                  (headerText.includes('jan') && headerText.includes('feb'))
+                ) {
+                  detectedType = 'salary';
+                } else if (
+                  headerText.includes('price') ||
+                  headerText.includes('contract') ||
+                  headerText.includes('ref code')
+                ) {
+                  detectedType = 'price';
+                } else if (
+                  headerText.includes('task') ||
+                  headerText.includes('logged') ||
+                  (headerText.includes('person') && headerText.includes('hours'))
+                ) {
+                  detectedType = 'timesheet';
+                }
+              } catch {
+                // Ignore sniff failure and let unrecognized handler catch
+              }
+            }
+
+            if (detectedType === 'salary') {
               const entries = parseSalariesSheet(buf);
               if (entries.length === 0) {
                 errors.push(`${part.filename}: No valid salary entries found.`);
@@ -72,7 +136,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
                 store.upsertSalaries(entries);
                 salaryCount += entries.length;
               }
-            } else if (fieldname.includes('price') || filename.includes('price')) {
+            } else if (detectedType === 'price') {
               const entries = parseProjectPricesSheet(buf);
               if (entries.length === 0) {
                 errors.push(`${part.filename}: No valid project price rows found.`);
@@ -80,7 +144,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
                 store.upsertProjectPrices(entries);
                 priceCount += entries.length;
               }
-            } else if (fieldname.includes('timesheet') || filename.includes('timesheet') || filename.includes('time')) {
+            } else if (detectedType === 'timesheet') {
               const entries = parseTimesheetSheet(buf);
               if (entries.length === 0) {
                 errors.push(`${part.filename}: No valid timesheet rows found.`);
@@ -89,7 +153,6 @@ export async function apiRoutes(fastify: FastifyInstance) {
                 timesheetCount += entries.length;
               }
             } else {
-              // Try to sniff by columns
               errors.push(`Unrecognized file type: ${part.filename}. Expected timesheet, salary, or project price file.`);
             }
           } catch (fileErr: unknown) {
@@ -99,8 +162,9 @@ export async function apiRoutes(fastify: FastifyInstance) {
         }
       }
 
+      const hasParsedData = timesheetCount > 0 || salaryCount > 0 || priceCount > 0;
       return {
-        success: errors.length === 0 || (timesheetCount > 0 || salaryCount > 0 || priceCount > 0),
+        success: errors.length === 0 && hasParsedData,
         message: `Parsed: ${timesheetCount} timesheet rows, ${salaryCount} salary entries, ${priceCount} projects.`,
         errors
       };
