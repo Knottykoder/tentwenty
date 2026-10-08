@@ -1,6 +1,6 @@
 # tentwenty - Margin Dashboard Exercise
 
-An executive margin & profitability dashboard built for agency leadership. It turns messy timesheet, salary, and project pricing spreadsheets into actionable financial clarity.
+An executive margin & profitability dashboard built for agency leadership. It turns messy timesheet, salary, and project pricing spreadsheets into actionable financial clarity with zero setup friction.
 
 ---
 
@@ -26,34 +26,89 @@ npm run dev
 - **Frontend Dashboard:** [http://localhost:3000](http://localhost:3000)
 - **Backend API:** [http://localhost:3001](http://localhost:3001)
 
-### 3. Run Self-Check & Domain Math Tests
+### 3. Run Self-Check & Pipeline Tests
 ```bash
 npm run test
 ```
-Verifies to the dirham that with overhead set to zero, total project costs equal total salaries:
-`Total Salaries (2,400,000.00 AED) == Total Project Cost (2,400,000.00 AED) -> Difference: 0.00 AED`.
+This runs automated verification suites:
+1. **Domain Math Verification:** Verifies to the dirham that with overhead set to zero, total project costs equal total salaries:
+   `Total Salaries (2,400,000.00 AED) == Total Project Cost (2,400,000.00 AED) -> Difference: 0.00 AED`.
+2. **Two-Phase Upload & Transaction Pipeline:** Verifies that files parse in memory, validate against business rules, and commit atomically inside a single Prisma transaction with zero partial state on errors.
+
+---
+
+## Architecture: Two-Phase Atomic Upload Pipeline
+
+To prevent partial database states or orphaned data across multiple spreadsheets, the application uses an atomic two-phase ingestion workflow:
+
+```text
+Parse ALL files (In-Memory)
+      ↓
+Validate ALL files (Schema, Types, Business Rules)
+      ↓
+If Valid
+      ↓
+ONE Prisma Transaction (ACID Guarantee)
+      ↓
+Commit Everything
+```
+
+### 1. Parse ALL Files (In-Memory)
+- Spreadsheets are uploaded via multipart form streams and parsed into memory buffers using SheetJS.
+- Zero database writes occur while files are streaming or parsing.
+- Handles edge cases such as messy headers, missing columns, blank cells (`-`), and flexible date patterns.
+
+### 2. Validate ALL Files
+- All parsed entries are evaluated through the pre-commit validator (`backend/src/services/validator.ts`).
+- **Timesheets:** Checks for required employee IDs, valid `YYYY-MM` month strings, and non-negative logged hours.
+- **Salaries:** Enforces required employee IDs, valid month formats, positive salaries, and duplicate detection.
+- **Project Prices:** Ensures unique project reference codes and non-negative contract amounts.
+- If **any** file fails validation, the entire process terminates immediately. An HTTP 400 response is returned with the list of errors, and the database remains completely untouched.
+
+### 3. ONE Prisma Transaction
+- Only when all files pass 100% of validation checks, the batch is passed to `store.commitBatchTransaction`.
+- Executed inside a single `prisma.$transaction(async (tx) => { ... })` block with configurable timeout safeguards.
+
+### 4. Commit Everything
+- Old records for the uploaded months are replaced cleanly while preserving previous months.
+- Project prices are upserted atomically.
+- If any database constraint or statement fails, Prisma automatically rolls back all changes, guaranteeing zero partial writes.
 
 ---
 
 ## Core Features Delivered
 
 ### Must Have
-- **Spreadsheet Upload & Ingestion:** Ingests the 3 `.xlsx` files (`timesheet`, `salaries`, `project-prices`) through the UI with robust error handling for messy headers, blank cells (`-`), and inconsistent date formats. Re-uploading a month updates records without wiping or duplicating other months.
-- **Executive Dashboard:** Total hours, billable hours (%), total cost, revenue, net profit, and gross margin with full-year and individual month filtering.
-- **Project Deep-Dive:** Click any project to inspect price, hours by department, total cost, profit, margin %, and a per-employee contribution table.
-- **Productivity Page:** Per-employee billable ÷ total logged hours ratio with visual progress indicators.
-- **Category Time Allocation:** Clear breakdown of billable client work vs absorbed agency overhead (meetings, leaves, learning, bug fixes, etc.).
+- **Atomic Spreadsheet Ingestion:** Ingests the 3 `.xlsx` files (`timesheet`, `salaries`, `project-prices`) with full ACID guarantees. Corrected months can be uploaded without wiping or duplicating other periods.
+- **Executive Dashboard:** Clean leadership overview displaying high-level KPI cards and interactive Chart.js visualizations:
+  - Monthly Revenue vs. Cost Trend Line Chart.
+  - Department Cost Distribution Donut Chart.
+  - Category Hours Breakdown Bar Chart.
+- **Dedicated Project Details Page (`/projects/[refCode]`):** Full-page project breakdown with contract value, burned cost, profit, margin %, monthly cost burn chart, and employee contribution tables.
+- **Productivity Page:** Per-employee billable ÷ total logged hours ratio with visual performance badges.
+- **Category Time Allocation:** Clear breakdown of billable client work vs. absorbed agency overhead (leaves, meetings, learning, bug fixes, etc.).
 
 ### Should Have
-- **Department Drill-Down:** Accordion and modal views for departments (Design, Frontend, Backend, App, QA, Management) showing hours and costs per employee.
+- **Department Drill-Down:** Dedicated views for departments (Design, Frontend, Backend, App, QA, Management) showing hours and costs per employee.
 - **Per-Employee Project Profitability:** Calculates employee revenue share (`Project Price * (Employee Hours / Total Project Hours)`) and employee profitability (`(Revenue Share - Cost) / Revenue Share`).
-- **Configurable Assumptions:** Adjust monthly agency overhead (AED) and toggle billable categories live through the UI without touching code.
-- **Honest Empty & Error States:** Clear warnings for missing records, connection issues, or unrecognized files.
+- **Configurable Assumptions:** Live adjustment of monthly agency overhead (AED) and billable category toggles through the UI modal without modifying code.
+- **Honest Empty & Error States:** Clear alerts for invalid files, network issues, and validation errors.
 
 ### Stretch Goals
 - **CSV Export:** 1-click export for any table on screen (Projects, Contributions, Productivity, Categories, Departments, and Audit tables).
-- **Employee x Category Matrix:** Automated pivot matrix replacing the manual finance spreadsheet.
-- **Cost Rate Audit View:** Dedicated modal showing exact derivations of direct rates, indirect cost pools, and zero-overhead reconciliation.
+- **Employee x Category Matrix:** Automated pivot matrix replacing manual finance tracking spreadsheets.
+- **Cost Rate Audit View:** Modal displaying exact derivations of direct rates, indirect cost pools, and zero-overhead reconciliation proofs.
+
+---
+
+## Tech Stack
+
+| Layer | Technologies Used |
+| :--- | :--- |
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Chart.js, Lucide Icons |
+| **Backend** | Fastify 4, TypeScript, Prisma ORM 6, SQLite, SheetJS (xlsx) |
+| **Testing** | Node.js native test runner (`tsx --test`) |
+| **Data Storage** | SQLite (`backend/prisma/dev.db`) managed via Prisma migrations and client |
 
 ---
 
@@ -86,32 +141,24 @@ Verifies to the dirham that with overhead set to zero, total project costs equal
 
 1. **Monthly Revenue Attribution in Filtered Views:**
    Project contracts are sold once (e.g. `Meridian` in January) but work is delivered over several months.
-   - For the full-year view, revenue is the total sold project contract values.
+   - For the full-year view, revenue represents total sold project contract values.
    - For individual filtered months, if a project has hours logged across multiple months, revenue is attributed proportionally to the billable hours delivered in that month (percentage-of-completion method), ensuring monthly margins reflect true delivery performance.
 
 2. **Support Staff Handling:**
    If a team member has an active monthly salary but logs 0 hours in timesheets, their direct hourly rate cannot be computed by division by zero. Their entire salary is automatically routed into the indirect cost pool to be absorbed across billable projects.
 
 3. **Re-upload Idempotency:**
-   When uploading a corrected timesheet file, the parser detects the months present in the upload and replaces records matching those months, preserving all previously uploaded months untouched.
+   When uploading a corrected timesheet or salary file, the parser detects the months present in the upload and replaces records matching those specific months, preserving all previously uploaded months untouched.
 
 ---
 
-## Architecture & Code Quality
-
-- **Separation of Concerns:** The calculation engine (`backend/src/services/calculations.ts`) is completely decoupled from Fastify and React, written in pure TypeScript with zero UI dependencies, and thoroughly unit tested.
-- **Persistence:** Local JSON file storage (`backend/data/store.json`) requires no external databases or cloud services, guaranteeing 1-command startup on any machine.
-- **Sample Data Pre-loaded:** On first launch, the 2025 agency sample spreadsheets are automatically ingested, so the leadership dashboard is instantly populated upon opening.
-
----
-
-## Short Note: What We'd Build Next & Trade-offs
+## What We'd Build Next & Trade-offs
 
 ### What We'd Build Next
-- **Multi-Year Comparative Trends:** Side-by-side year-over-year comparison (2023, 2024, 2025) comparing margin changes as headcount scaled.
-- **Role-Based Access Control (RBAC):** Restricting salary details while keeping billability and margin percentages accessible to project managers.
+- **Multi-Year Comparative Trends:** Side-by-side year-over-year comparisons (2023, 2024, 2025) tracking margin changes as headcount scaled.
+- **Role-Based Access Control (RBAC):** Restricting raw salary details while keeping billability and margin percentages accessible to project managers.
 - **Predictive Burn-Down Forecasts:** Early warnings when a project's cost burn rate exceeds 80% of contract price before delivery is complete.
 
 ### Trade-offs Made
-- Chose an embedded, atomic JSON file store over a Dockerized database to guarantee zero setup friction on Mac/Windows clean checkouts.
-- Kept calculations computed in real-time in the backend service to guarantee consistency whenever overhead or billable assumptions are toggled.
+- Chose embedded SQLite with Prisma ORM over external Dockerized PostgreSQL to ensure seamless, zero-friction setup on any machine while retaining full ACID transaction safety.
+- Kept calculations computed in real-time in the backend service to guarantee consistency whenever overhead or billable assumptions are adjusted.
