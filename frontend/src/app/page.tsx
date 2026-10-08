@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { WelcomeHero } from '../components/WelcomeHero';
 import { RevenueCostLineChart } from '../components/RevenueCostLineChart';
 import { DepartmentDonutChart } from '../components/DepartmentDonutChart';
 import { CategoryBarChart } from '../components/CategoryBarChart';
@@ -14,7 +15,11 @@ export default function DashboardPage() {
     selectedYear,
     selectedMonth,
     setSelectedMonth,
-    monthlyTrends
+    monthlyTrends,
+    hasData,
+    handleLoadSample,
+    setIsUploadOpen,
+    isProcessing
   } = useData();
 
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
@@ -51,6 +56,16 @@ export default function DashboardPage() {
   const filteredTrends = selectedYear === 'all'
     ? monthlyTrends
     : monthlyTrends.filter((t) => t.month.startsWith(selectedYear));
+
+  if (!hasData) {
+    return (
+      <WelcomeHero
+        onLoadSample={handleLoadSample}
+        onOpenUpload={() => setIsUploadOpen(true)}
+        isLoading={isProcessing}
+      />
+    );
+  }
 
   if (loading) {
     return (

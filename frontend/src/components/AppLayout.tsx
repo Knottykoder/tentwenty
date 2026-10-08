@@ -105,21 +105,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
       {/* 2. Main Workspace */}
       <main className="flex-1 flex flex-col h-full overflow-hidden p-6 sm:p-8 bg-[#FAFBFF]">
-        {/* If files are being parsed and calculated, show visual progress */}
-        {isProcessing ? (
-          <ParsingProgress />
-        ) : !hasData ? (
-          /* Initial State: Empty Welcome Hero */
-          <WelcomeHero
-            onLoadSample={handleLoadSample}
-            onOpenUpload={() => setIsUploadOpen(true)}
-            isLoading={isProcessing}
-          />
-        ) : (
-          /* Data Loaded State: Full-Width SaaS Dashboard */
-          <>
-            {/* Top Header: Greeting, Year Filter, Month Filter & Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 flex-shrink-0">
+        {/* Top Header: Greeting, Year Filter, Month Filter & Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 flex-shrink-0">
               <div>
                 <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
                   {currentHeader.title}
@@ -276,12 +263,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </div>
             )}
 
-            {/* 3. Page Content: Renders the active route's scrollable table view */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              {children}
-            </div>
-          </>
-        )}
+        {/* 3. Page Content: Renders the active route's scrollable view */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {isProcessing ? <ParsingProgress /> : children}
+        </div>
       </main>
 
       {/* Modals */}
